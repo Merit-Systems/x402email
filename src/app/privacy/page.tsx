@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Link from "next/link";
 
 export const metadata: Metadata = {
   title: "Privacy Policy — x402email",
@@ -10,12 +11,12 @@ export default function PrivacyPage() {
     <div className="min-h-screen bg-zinc-50 font-sans dark:bg-zinc-950">
       <main className="mx-auto max-w-2xl px-6 py-20">
         <div className="mb-12">
-          <a
+          <Link
             href="/"
             className="text-sm text-zinc-400 underline decoration-zinc-300 underline-offset-2 hover:decoration-zinc-500 dark:decoration-zinc-700 dark:hover:decoration-zinc-500"
           >
             &larr; x402email
-          </a>
+          </Link>
           <h1 className="mt-4 text-3xl font-bold tracking-tight text-zinc-900 dark:text-zinc-100">
             Privacy Policy
           </h1>
