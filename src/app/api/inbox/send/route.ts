@@ -1,6 +1,6 @@
 /**
  * POST /api/inbox/send — Send email from a forwarding inbox.
- * Protection: x402 payment ($0.001). Wallet identity extracted from payment.
+ * Protection: x402 payment ($0.005). Wallet identity extracted from payment.
  */
 import { NextRequest, NextResponse } from 'next/server';
 import { withX402 } from '@x402/next';
@@ -142,7 +142,7 @@ const coreHandler = async (request: NextRequest): Promise<NextResponse> => {
 };
 
 const routeConfig = {
-  description: `Send email from your forwarding inbox on ${DOMAIN} ($0.001 via x402)`,
+  description: `Send email from your forwarding inbox on ${DOMAIN} ($0.005 via x402)`,
   extensions,
   accepts: [PRICES.inboxSend],
 };

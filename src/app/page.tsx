@@ -2,7 +2,7 @@ const ENDPOINTS = [
   {
     method: "POST",
     path: "/api/send",
-    price: "$0.001",
+    price: "$0.02",
     auth: "x402",
     description: "Send from relay@x402email.com",
   },
@@ -16,7 +16,7 @@ const ENDPOINTS = [
   {
     method: "POST",
     path: "/api/subdomain/send",
-    price: "$0.001",
+    price: "$0.005",
     auth: "x402",
     description: "Send from your subdomain",
   },
@@ -65,7 +65,7 @@ const ENDPOINTS = [
   {
     method: "POST",
     path: "/api/inbox/send",
-    price: "$0.001",
+    price: "$0.005",
     auth: "x402",
     description: "Send from your inbox address",
   },
@@ -155,7 +155,7 @@ export default function Home() {
                 2
               </span>
               <span>
-                Get back a 402 with payment requirements ($0.001 USDC on Base)
+                Get back a 402 with payment requirements ($0.02 USDC on Base)
               </span>
             </li>
             <li className="flex gap-3">
@@ -245,7 +245,7 @@ export default function Home() {
               username@x402email.com
             </code>{" "}
             for $1/month. Emails forwarded to your real address. Send from your
-            inbox address for $0.001/email. Bulk discounts: 90 days for $2.50
+            inbox address for $0.005/email. Bulk discounts: 90 days for $2.50
             (save 17%), 365 days for $8 (save 34%). Anyone can top up any inbox.
             Cancel anytime for a pro-rata refund.
           </p>

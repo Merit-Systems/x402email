@@ -12,11 +12,11 @@ Every email API requires signup, API keys, billing accounts, and rate limit nego
 
 ## Three Tiers
 
-**Shared domain** — Send from `relay@x402email.com` for **$0.001/email**. No auth, just pay. Good for notifications, alerts, one-off sends.
+**Shared domain** — Send from `relay@x402email.com` for **$0.02/email**. No auth, just pay. Good for notifications, alerts, one-off sends.
 
-**Forwarding inbox** — Buy `username@x402email.com` for **$1/month**. Emails forwarded to your real address. Send from your inbox address for $0.001/email. Bulk discounts: 90 days for $2.50 (save 17%), 365 days for $8 (save 34%). Anyone can top up any inbox. Cancel anytime for a pro-rata refund.
+**Forwarding inbox** — Buy `username@x402email.com` for **$1/month**. Emails forwarded to your real address. Send from your inbox address for $0.005/email. Bulk discounts: 90 days for $2.50 (save 17%), 365 days for $8 (save 34%). Anyone can top up any inbox. Cancel anytime for a pro-rata refund.
 
-**Custom subdomain** — Buy `yourname.x402email.com` for **$5**. Send from `anything@yourname.x402email.com` with full DKIM/SPF/DMARC. Wallet-based auth (SIWX) proves ownership. Up to 50 authorized signer wallets. $0.001/send.
+**Custom subdomain** — Buy `yourname.x402email.com` for **$5**. Send from `anything@yourname.x402email.com` with full DKIM/SPF/DMARC. Wallet-based auth (SIWX) proves ownership. Up to 50 authorized signer wallets. $0.005/send.
 
 ## How It Works
 
@@ -39,7 +39,7 @@ x402 handles payment negotiation automatically. Compatible clients resolve the 4
 
 | Endpoint | Protection | Cost | Description |
 |----------|-----------|------|-------------|
-| `POST /api/send` | x402 | $0.001 | Send from `relay@x402email.com` |
+| `POST /api/send` | x402 | $0.02 | Send from `relay@x402email.com` |
 
 ### Forwarding inbox
 
@@ -49,7 +49,7 @@ x402 handles payment negotiation automatically. Compatible clients resolve the 4
 | `POST /api/inbox/topup` | x402 | $1 | Extend inbox 30 days |
 | `POST /api/inbox/topup/quarter` | x402 | $2.50 | Extend inbox 90 days (save 17%) |
 | `POST /api/inbox/topup/year` | x402 | $8 | Extend inbox 365 days (save 34%) |
-| `POST /api/inbox/send` | x402 | $0.001 | Send from your inbox address |
+| `POST /api/inbox/send` | x402 | $0.005 | Send from your inbox address |
 | `GET /api/inbox/status` | SIWX | Free | Check inbox status and expiry |
 | `POST /api/inbox/update` | SIWX | Free | Change forwarding address |
 | `POST /api/inbox/cancel` | SIWX | Free | Cancel inbox, pro-rata refund |
@@ -59,7 +59,7 @@ x402 handles payment negotiation automatically. Compatible clients resolve the 4
 | Endpoint | Protection | Cost | Description |
 |----------|-----------|------|-------------|
 | `POST /api/subdomain/buy` | x402 | $5 | Purchase `yourname.x402email.com` |
-| `POST /api/subdomain/send` | x402 | $0.001 | Send from your subdomain |
+| `POST /api/subdomain/send` | x402 | $0.005 | Send from your subdomain |
 | `POST /api/subdomain/signers` | SIWX | Free | Add/remove authorized wallets |
 | `GET /api/subdomain/status` | SIWX | Free | Check DNS/SES verification |
 
@@ -81,7 +81,7 @@ curl -X POST https://x402email.com/api/send \
     "text": "Sent with a micropayment, not an API key.",
     "replyTo": "you@example.com"
   }'
-# Returns 402 -> client pays $0.001 USDC on Base -> email sends
+# Returns 402 -> client pays $0.02 USDC on Base -> email sends
 ```
 
 ### Buy a forwarding inbox
@@ -138,7 +138,7 @@ x402email (Next.js on Vercel)
 | Mechanism | Purpose |
 |-----------|---------|
 | $5 subdomain price | Economic spam deterrent for subdomain tier |
-| $0.001 per-send cost | Marginal deterrent (100K spam = $100) |
+| $0.005–$0.02 per-send cost | Marginal deterrent (100K spam = $500–$2,000) |
 | $1/month inbox price | Economic deterrent for inbox squatting |
 | Schema validation | 50 recipient cap, 256KB body limit, name rules |
 | Send logging | All sends logged with wallet address |

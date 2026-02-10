@@ -7,10 +7,11 @@ Pay-per-send email via x402. No API keys. Fund a wallet, send email.
 
 ## What This Is
 
-An x402-protected email sending API. Two tiers:
+An x402-protected email sending API. Three tiers:
 
-1. **Shared domain** — send from `noreply@x402email.com`, x402 payment only, no auth
-2. **Custom subdomain** — buy `alice.x402email.com` for $50 via x402, send from `anything@alice.x402email.com`, SIWX wallet auth + x402 payment per send. Up to 50 authorized signer wallets per subdomain.
+1. **Shared domain** — send from `relay@x402email.com` for $0.02/email, x402 payment only, no auth
+2. **Forwarding inbox** — buy `username@x402email.com` for $1/month, emails forwarded to your real address, send from your inbox for $0.005/email
+3. **Custom subdomain** — buy `alice.x402email.com` for $5 via x402, send from `anything@alice.x402email.com` for $0.005/email, wallet identity extracted from x402 payment. Up to 50 authorized signer wallets per subdomain.
 
 ## Tech Stack
 
@@ -28,11 +29,16 @@ An x402-protected email sending API. Two tiers:
 
 ## Pricing
 
-| Action | Our cost | Charge (10x) | x402 price string |
-|--------|----------|--------------|-------------------|
-| Send email (shared or subdomain) | ~$0.0001 (SES) | $0.001 | `'0.001'` |
-| Buy subdomain | ~$0 (DNS) | $50 | `'50'` |
-| Manage signers | $0 | Free | N/A (SIWX only) |
+| Action | Cost | x402 price string |
+|--------|------|-------------------|
+| Send email (shared domain) | $0.02 | `'0.02'` |
+| Send email (subdomain or inbox) | $0.005 | `'0.005'` |
+| Buy subdomain | $5 | `'5'` |
+| Buy forwarding inbox (30 days) | $1 | `'1'` |
+| Top up inbox 30 days | $1 | `'1'` |
+| Top up inbox 90 days | $2.50 | `'2.5'` |
+| Top up inbox 365 days | $8 | `'8'` |
+| Manage signers / status / update / cancel | Free | N/A (SIWX only) |
 
 ## Architecture
 
@@ -41,8 +47,14 @@ An x402-protected email sending API. Two tiers:
 │                      x402email API                       │
 │                                                          │
 │  /api/send             x402 payment → SES send           │
-│  /api/subdomain/buy    x402 payment + SIWX → DNS + DB   │
-│  /api/subdomain/send   x402 payment + SIWX → SES send   │
+│  /api/inbox/buy        x402 payment → DB + forwarding    │
+│  /api/inbox/send       x402 payment → SES send           │
+│  /api/inbox/topup/*    x402 payment → extend expiry      │
+│  /api/inbox/status     SIWX only → DB read               │
+│  /api/inbox/update     SIWX only → DB update             │
+│  /api/inbox/cancel     SIWX only → refund + DB           │
+│  /api/subdomain/buy    x402 payment → DNS + DB           │
+│  /api/subdomain/send   x402 payment → SES send           │
 │  /api/subdomain/signers     SIWX only → DB update        │
 │  /api/subdomain/status      SIWX only → DB read          │
 │  /.well-known/x402     discovery                         │

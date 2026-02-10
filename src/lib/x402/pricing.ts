@@ -7,7 +7,13 @@ export const PRICES = {
   send: {
     scheme: 'exact' as const,
     network: NETWORK,
-    price: '0.001',
+    price: '0.02',
+    payTo: PAYEE,
+  },
+  subdomainSend: {
+    scheme: 'exact' as const,
+    network: NETWORK,
+    price: '0.005',
     payTo: PAYEE,
   },
   subdomainBuy: {
@@ -43,7 +49,7 @@ export const PRICES = {
   inboxSend: {
     scheme: 'exact' as const,
     network: NETWORK,
-    price: '0.001',
+    price: '0.005',
     payTo: PAYEE,
   },
 } as const;

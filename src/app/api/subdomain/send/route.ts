@@ -157,9 +157,9 @@ const coreHandler = async (request: NextRequest): Promise<NextResponse> => {
 };
 
 const routeConfig = {
-  description: `Send email from your custom subdomain on ${DOMAIN} ($0.001 via x402)`,
+  description: `Send email from your custom subdomain on ${DOMAIN} ($0.005 via x402)`,
   extensions,
-  accepts: [PRICES.send],
+  accepts: [PRICES.subdomainSend],
 };
 
 export const POST = withX402(coreHandler, routeConfig, getX402Server());

@@ -1,6 +1,6 @@
 /**
  * POST /api/send — Shared domain email send.
- * Protection: x402 payment ($0.001), no SIWX.
+ * Protection: x402 payment ($0.02), no SIWX.
  * Sends from relay@x402email.com via AWS SES.
  */
 import { NextResponse } from 'next/server';
@@ -14,7 +14,7 @@ const DOMAIN = process.env.EMAIL_DOMAIN ?? 'x402email.com';
 const FROM = `relay@${DOMAIN}`;
 
 export const POST = createX402PostRoute({
-  description: `Send an email from ${FROM} ($0.001 via x402)`,
+  description: `Send an email from ${FROM} ($0.02 via x402)`,
   inputSchema: SendEmailRequestSchema,
   outputExample: {
     success: true as const,
