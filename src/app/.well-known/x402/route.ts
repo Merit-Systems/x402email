@@ -9,6 +9,11 @@ export async function GET() {
       `${BASE_URL}/api/send`,
       `${BASE_URL}/api/subdomain/buy`,
       `${BASE_URL}/api/subdomain/send`,
+      `${BASE_URL}/api/inbox/buy`,
+      `${BASE_URL}/api/inbox/topup`,
+      `${BASE_URL}/api/inbox/topup/quarter`,
+      `${BASE_URL}/api/inbox/topup/year`,
+      `${BASE_URL}/api/inbox/send`,
     ],
   });
 }

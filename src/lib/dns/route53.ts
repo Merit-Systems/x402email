@@ -8,7 +8,13 @@ import {
   type Change,
 } from '@aws-sdk/client-route-53';
 
-const route53 = new Route53Client({ region: process.env.AWS_REGION ?? 'us-east-1' });
+const route53 = new Route53Client({
+  region: (process.env.AWS_REGION ?? 'us-east-1').trim(),
+  credentials: {
+    accessKeyId: (process.env.AWS_ACCESS_KEY_ID ?? '').trim(),
+    secretAccessKey: (process.env.AWS_SECRET_ACCESS_KEY ?? '').trim(),
+  },
+});
 
 function getHostedZoneId(): string {
   const id = process.env.ROUTE53_HOSTED_ZONE_ID;

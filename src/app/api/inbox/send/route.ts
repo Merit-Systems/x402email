@@ -1,0 +1,167 @@
+/**
+ * POST /api/inbox/send — Send email from a forwarding inbox.
+ * Protection: x402 payment ($0.0005) + SIWX auth in handler.
+ * SIWX proves wallet identity for authorization (must be inbox owner).
+ */
+import { NextRequest, NextResponse } from 'next/server';
+import { withX402 } from '@x402/next';
+import { declareDiscoveryExtension } from '@x402/extensions/bazaar';
+import { declareSIWxExtension, parseSIWxHeader } from '@x402/extensions/sign-in-with-x';
+import { z } from 'zod';
+import { getX402Server } from '@/lib/x402/server';
+import { PRICES } from '@/lib/x402/pricing';
+import { InboxSendRequestSchema } from '@/schemas/inbox';
+import { prisma } from '@/lib/db/client';
+import { sendEmail } from '@/lib/email/ses';
+
+const DOMAIN = process.env.EMAIL_DOMAIN ?? 'x402email.com';
+
+const inputJsonSchema = z.toJSONSchema(InboxSendRequestSchema, {
+  target: 'draft-2020-12',
+});
+
+const extensions = {
+  ...declareDiscoveryExtension({
+    bodyType: 'json',
+    inputSchema: inputJsonSchema,
+    output: {
+      schema: {
+        type: 'object',
+        properties: {
+          success: { type: 'boolean', const: true },
+          messageId: { type: 'string' },
+          from: { type: 'string' },
+        },
+        required: ['success', 'messageId', 'from'],
+      },
+      example: {
+        success: true,
+        messageId: 'ses-message-id',
+        from: 'alice@x402email.com',
+      },
+    },
+  } as never),
+  ...declareSIWxExtension({
+    statement: 'Sign in to send from your inbox',
+    expirationSeconds: 300,
+    network: 'eip155:8453',
+  }),
+};
+
+const coreHandler = async (request: NextRequest): Promise<NextResponse> => {
+  let rawBody: unknown;
+  try {
+    rawBody = await request.json();
+  } catch {
+    return NextResponse.json(
+      { success: false, error: 'Invalid JSON body' },
+      { status: 400 },
+    );
+  }
+
+  const parsed = InboxSendRequestSchema.safeParse(rawBody);
+  if (!parsed.success) {
+    const msg = parsed.error.issues
+      .map((i) => `${i.path.join('.')}: ${i.message}`)
+      .join('; ');
+    return NextResponse.json(
+      { success: false, error: 'Validation failed', message: msg },
+      { status: 400 },
+    );
+  }
+
+  const body = parsed.data;
+
+  // Verify SIWX wallet identity
+  const siwxHeader = request.headers.get('SIGN-IN-WITH-X');
+  if (!siwxHeader) {
+    return NextResponse.json(
+      { success: false, error: 'Missing SIGN-IN-WITH-X header' },
+      { status: 401 },
+    );
+  }
+
+  let walletAddress: string;
+  try {
+    const payload = parseSIWxHeader(siwxHeader);
+    walletAddress = payload.address.toLowerCase();
+  } catch {
+    return NextResponse.json(
+      { success: false, error: 'Invalid SIGN-IN-WITH-X header' },
+      { status: 401 },
+    );
+  }
+
+  // Look up inbox
+  const inbox = await prisma.inbox.findUnique({
+    where: { username: body.username },
+  });
+
+  if (!inbox) {
+    return NextResponse.json(
+      { success: false, error: 'Inbox not found' },
+      { status: 404 },
+    );
+  }
+
+  // Verify wallet is owner
+  if (inbox.ownerWallet.toLowerCase() !== walletAddress) {
+    return NextResponse.json(
+      { success: false, error: 'Wallet not authorized for this inbox' },
+      { status: 403 },
+    );
+  }
+
+  // Check inbox is active and not expired
+  if (!inbox.active || inbox.expiresAt < new Date()) {
+    return NextResponse.json(
+      { success: false, error: 'Inbox is expired — top up to reactivate' },
+      { status: 403 },
+    );
+  }
+
+  const from = `${body.username}@${DOMAIN}`;
+
+  try {
+    const result = await sendEmail({
+      from,
+      to: body.to,
+      subject: body.subject,
+      html: body.html,
+      text: body.text,
+      replyTo: body.replyTo,
+    });
+
+    await prisma.sendLog.create({
+      data: {
+        inboxId: inbox.id,
+        senderWallet: walletAddress,
+        fromEmail: from,
+        toEmails: body.to,
+        subject: body.subject,
+        sesMessageId: result.messageId,
+      },
+    });
+
+    return NextResponse.json({
+      success: true,
+      messageId: result.messageId,
+      from,
+    });
+  } catch (error) {
+    const msg = error instanceof Error ? error.message : 'Email send failed';
+    console.error('[x402email] Inbox send error:', msg);
+    return NextResponse.json(
+      { success: false, error: msg },
+      { status: 500 },
+    );
+  }
+};
+
+const routeConfig = {
+  description: `Send email from your forwarding inbox on ${DOMAIN} ($0.0005 via x402)`,
+  extensions,
+  accepts: [PRICES.inboxSend],
+};
+
+export const POST = withX402(coreHandler, routeConfig, getX402Server());

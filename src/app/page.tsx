@@ -10,7 +10,7 @@ const ENDPOINTS = [
     method: "POST",
     path: "/api/subdomain/buy",
     price: "$5",
-    auth: "x402 + SIWX",
+    auth: "x402",
     description: "Purchase yourname.x402email.com",
   },
   {
@@ -33,6 +33,62 @@ const ENDPOINTS = [
     price: "Free",
     auth: "SIWX",
     description: "Check DNS/SES verification",
+  },
+  {
+    method: "POST",
+    path: "/api/inbox/buy",
+    price: "$1",
+    auth: "x402",
+    description: "Buy username@x402email.com (30 days)",
+  },
+  {
+    method: "POST",
+    path: "/api/inbox/topup",
+    price: "$1",
+    auth: "x402",
+    description: "Extend inbox 30 days",
+  },
+  {
+    method: "POST",
+    path: "/api/inbox/topup/quarter",
+    price: "$2.50",
+    auth: "x402",
+    description: "Extend inbox 90 days (save 17%)",
+  },
+  {
+    method: "POST",
+    path: "/api/inbox/topup/year",
+    price: "$8",
+    auth: "x402",
+    description: "Extend inbox 365 days (save 34%)",
+  },
+  {
+    method: "POST",
+    path: "/api/inbox/send",
+    price: "$0.0005",
+    auth: "x402 + SIWX",
+    description: "Send from your inbox address",
+  },
+  {
+    method: "GET",
+    path: "/api/inbox/status",
+    price: "Free",
+    auth: "SIWX",
+    description: "Check inbox status and expiry",
+  },
+  {
+    method: "POST",
+    path: "/api/inbox/update",
+    price: "Free",
+    auth: "SIWX",
+    description: "Change forwarding address",
+  },
+  {
+    method: "POST",
+    path: "/api/inbox/cancel",
+    price: "Free",
+    auth: "SIWX",
+    description: "Cancel inbox and get pro-rata refund",
   },
 ];
 
@@ -176,6 +232,23 @@ export default function Home() {
               </tbody>
             </table>
           </div>
+        </section>
+
+        {/* Forwarding inbox */}
+        <section className="mb-14">
+          <h2 className="mb-4 text-sm font-semibold uppercase tracking-wider text-zinc-400 dark:text-zinc-500">
+            Forwarding inbox
+          </h2>
+          <p className="text-zinc-700 dark:text-zinc-300">
+            Buy{" "}
+            <code className="rounded bg-zinc-100 px-1.5 py-0.5 text-sm font-mono dark:bg-zinc-800">
+              username@x402email.com
+            </code>{" "}
+            for $1/month. Emails forwarded to your real address. Send from your
+            inbox address for $0.0005/email. Bulk discounts: 90 days for $2.50
+            (save 17%), 365 days for $8 (save 34%). Anyone can top up any inbox.
+            Cancel anytime for a pro-rata refund.
+          </p>
         </section>
 
         {/* Custom subdomain */}

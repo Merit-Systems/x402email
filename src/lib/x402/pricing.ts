@@ -16,4 +16,36 @@ export const PRICES = {
     price: '5',
     payTo: PAYEE,
   },
+  inboxBuy: {
+    scheme: 'exact' as const,
+    network: NETWORK,
+    price: '1',
+    payTo: PAYEE,
+  },
+  inboxTopup: {
+    scheme: 'exact' as const,
+    network: NETWORK,
+    price: '1',
+    payTo: PAYEE,
+  },
+  inboxTopupQuarter: {
+    scheme: 'exact' as const,
+    network: NETWORK,
+    price: '2.5',
+    payTo: PAYEE,
+  },
+  inboxTopupYear: {
+    scheme: 'exact' as const,
+    network: NETWORK,
+    price: '8',
+    payTo: PAYEE,
+  },
+  inboxSend: {
+    scheme: 'exact' as const,
+    network: NETWORK,
+    price: '0.0005',
+    payTo: PAYEE,
+  },
 } as const;
+
+export const INBOX_DURATIONS = { topup: 30, quarter: 90, year: 365 } as const;

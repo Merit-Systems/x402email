@@ -28,10 +28,24 @@ model Signer {
   @@unique([subdomainId, walletAddress])
 }
 
+model Inbox {
+  id             String    @id @default(cuid())
+  username       String    @unique
+  forwardTo      String
+  ownerWallet    String
+  expiresAt      DateTime
+  active         Boolean   @default(true)
+  lastReminderAt DateTime?
+  createdAt      DateTime  @default(now())
+  sendLogs       SendLog[]
+}
+
 model SendLog {
   id           String     @id @default(cuid())
   subdomain    Subdomain? @relation(fields: [subdomainId], references: [id])
   subdomainId  String? // null = shared domain
+  inbox        Inbox?     @relation(fields: [inboxId], references: [id])
+  inboxId      String?
   senderWallet String?
   fromEmail    String
   toEmails     String[] // Postgres native array
