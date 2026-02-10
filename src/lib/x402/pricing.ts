@@ -13,7 +13,7 @@ export const PRICES = {
   subdomainBuy: {
     scheme: 'exact' as const,
     network: NETWORK,
-    price: '50',
+    price: '5',
     payTo: PAYEE,
   },
 } as const;

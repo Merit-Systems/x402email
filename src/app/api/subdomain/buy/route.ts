@@ -134,7 +134,7 @@ const coreHandler = async (request: NextRequest): Promise<NextResponse> => {
 };
 
 const routeConfig = {
-  description: `Purchase a custom email subdomain on ${DOMAIN} ($50 via x402)`,
+  description: `Purchase a custom email subdomain on ${DOMAIN} ($5 via x402)`,
   extensions,
   accepts: [PRICES.subdomainBuy],
 };

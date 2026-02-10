@@ -4,12 +4,12 @@ const ENDPOINTS = [
     path: "/api/send",
     price: "$0.001",
     auth: "x402",
-    description: "Send from noreply@x402email.com",
+    description: "Send from relay@x402email.com",
   },
   {
     method: "POST",
     path: "/api/subdomain/buy",
-    price: "$50",
+    price: "$5",
     auth: "x402 + SIWX",
     description: "Purchase yourname.x402email.com",
   },
@@ -51,7 +51,7 @@ PAYMENT-REQUIRED: <base64 payment details>
 {
   "success": true,
   "messageId": "ses-abc123",
-  "from": "noreply@x402email.com"
+  "from": "relay@x402email.com"
 }`;
 
 export default function Home() {
@@ -188,7 +188,7 @@ export default function Home() {
             <code className="rounded bg-zinc-100 px-1.5 py-0.5 text-sm font-mono dark:bg-zinc-800">
               yourname.x402email.com
             </code>{" "}
-            for $50. Send from any address on your subdomain. Add up to 50
+            for $5. Send from any address on your subdomain. Add up to 50
             authorized wallet signers via SIWX.
           </p>
         </section>

@@ -6,8 +6,8 @@ Pay-per-send email via [x402](https://www.x402.org/). No API keys. Fund a wallet
 
 | Endpoint | Price | Auth | Description |
 |----------|-------|------|-------------|
-| `POST /api/send` | $0.001 | x402 | Send from `noreply@x402email.com` |
-| `POST /api/subdomain/buy` | $50 | x402 + SIWX | Purchase `yourname.x402email.com` |
+| `POST /api/send` | $0.001 | x402 | Send from `relay@x402email.com` |
+| `POST /api/subdomain/buy` | $5 | x402 + SIWX | Purchase `yourname.x402email.com` |
 | `POST /api/subdomain/send` | $0.001 | x402 + SIWX | Send from your subdomain |
 | `POST /api/subdomain/signers` | Free | SIWX | Add/remove authorized wallets (max 50) |
 | `GET /api/subdomain/status` | Free | SIWX | Check DNS/SES verification status |
