@@ -20,7 +20,7 @@ GET /.well-known/x402
 - Returns: { "success": true, "messageId": "string", "from": "string" }
 
 ### POST /api/subdomain/buy — Purchase a custom subdomain
-- Protection: x402 payment ($5 USDC) + SIWX wallet proof
+- Protection: x402 payment ($5 USDC)
 - Body: { "subdomain": "yourname" }
 - Subdomain rules: 3-30 chars, lowercase alphanumeric + hyphens
 - Creates yourname.x402email.com with full email sending capability
@@ -28,8 +28,8 @@ GET /.well-known/x402
 - Returns: { "success": true, "subdomain": "yourname.x402email.com", "dnsStatus": "pending" }
 
 ### POST /api/subdomain/send — Send from custom subdomain
-- Protection: x402 payment ($0.001 USDC) + SIWX wallet proof
-- Wallet must be owner or authorized signer for the subdomain
+- Protection: x402 payment ($0.001 USDC)
+- Payer wallet must be owner or authorized signer for the subdomain
 - Body: { "from": "you@yourname.x402email.com", "to": ["email"], "subject": "string", "html": "string", "text": "string", "replyTo": "email" }
 - Returns: { "success": true, "messageId": "string", "from": "string" }
 
@@ -73,8 +73,8 @@ Buy `username@x402email.com` for $1/month. Emails sent to that address are forwa
 - Returns: { "success": true, "inbox": "alice", "expiresAt": "ISO date", "daysRemaining": number, "daysAdded": 365 }
 
 ### POST /api/inbox/send — Send from your inbox address ($0.0005)
-- Protection: x402 payment ($0.0005 USDC) + SIWX wallet proof
-- Wallet must be the inbox owner
+- Protection: x402 payment ($0.0005 USDC)
+- Payer wallet must be the inbox owner
 - Body: { "username": "alice", "to": ["bob@example.com"], "subject": "Hello", "html": "<p>Hi</p>", "text": "Hi", "replyTo": "alice@gmail.com" }
 - Requires either "html" or "text" (or both)
 - Returns: { "success": true, "messageId": "string", "from": "alice@x402email.com" }
@@ -103,7 +103,7 @@ To include images, use `<img src="url">` in the "html" body. Host images on agen
 
 ## Agent Integration
 
-The recommended way for AI agents to interact with x402email is via the x402 MCP server (`@x402scan/mcp`). It handles x402 payment negotiation, SIWX wallet signing, and retry logic automatically. Any x402-compatible client paying USDC on Base will also work.
+The recommended way for AI agents to interact with x402email is via the x402 MCP server (`@x402scan/mcp`). It handles x402 payment negotiation and retry logic automatically. Any x402-compatible client paying USDC on Base will also work.
 
 ## Payment Details
 
@@ -114,5 +114,5 @@ The recommended way for AI agents to interact with x402email is via the x402 MCP
 
 ## SIWX Authentication
 
-Subdomain endpoints require SIGN-IN-WITH-X header for wallet identity verification.
+Free management endpoints (status, update, cancel, signers) require SIGN-IN-WITH-X header for wallet identity verification. Send endpoints identify the wallet from the x402 payment header instead.
 SIWX is part of the x402 protocol extensions (CAIP-122 compliant, supports EVM + Solana).

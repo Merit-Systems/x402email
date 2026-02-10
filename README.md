@@ -49,7 +49,7 @@ x402 handles payment negotiation automatically. Compatible clients resolve the 4
 | `POST /api/inbox/topup` | x402 | $1 | Extend inbox 30 days |
 | `POST /api/inbox/topup/quarter` | x402 | $2.50 | Extend inbox 90 days (save 17%) |
 | `POST /api/inbox/topup/year` | x402 | $8 | Extend inbox 365 days (save 34%) |
-| `POST /api/inbox/send` | x402 + SIWX | $0.0005 | Send from your inbox address |
+| `POST /api/inbox/send` | x402 | $0.0005 | Send from your inbox address |
 | `GET /api/inbox/status` | SIWX | Free | Check inbox status and expiry |
 | `POST /api/inbox/update` | SIWX | Free | Change forwarding address |
 | `POST /api/inbox/cancel` | SIWX | Free | Cancel inbox, pro-rata refund |
@@ -59,7 +59,7 @@ x402 handles payment negotiation automatically. Compatible clients resolve the 4
 | Endpoint | Protection | Cost | Description |
 |----------|-----------|------|-------------|
 | `POST /api/subdomain/buy` | x402 | $5 | Purchase `yourname.x402email.com` |
-| `POST /api/subdomain/send` | x402 + SIWX | $0.001 | Send from your subdomain |
+| `POST /api/subdomain/send` | x402 | $0.001 | Send from your subdomain |
 | `POST /api/subdomain/signers` | SIWX | Free | Add/remove authorized wallets |
 | `GET /api/subdomain/status` | SIWX | Free | Check DNS/SES verification |
 

@@ -1,18 +1,17 @@
 /**
  * POST /api/subdomain/send — Send email from a custom subdomain.
- * Protection: x402 payment ($0.001) + SIWX auth in handler.
- * SIWX proves wallet identity for authorization (not to skip payment).
+ * Protection: x402 payment ($0.001). Wallet identity extracted from payment.
  */
 import { NextRequest, NextResponse } from 'next/server';
 import { withX402 } from '@x402/next';
 import { declareDiscoveryExtension } from '@x402/extensions/bazaar';
-import { declareSIWxExtension, parseSIWxHeader } from '@x402/extensions/sign-in-with-x';
 import { z } from 'zod';
 import { getX402Server } from '@/lib/x402/server';
 import { PRICES } from '@/lib/x402/pricing';
 import { SubdomainSendRequestSchema } from '@/schemas/subdomain';
 import { prisma } from '@/lib/db/client';
 import { sendEmail } from '@/lib/email/ses';
+import { extractPayerWallet } from '@/lib/x402/extract-wallet';
 
 const DOMAIN = process.env.EMAIL_DOMAIN ?? 'x402email.com';
 
@@ -41,11 +40,6 @@ const extensions = {
       },
     },
   } as never),
-  ...declareSIWxExtension({
-    statement: 'Sign in to send email from your subdomain',
-    expirationSeconds: 300,
-    network: 'eip155:8453',
-  }),
 };
 
 const coreHandler = async (request: NextRequest): Promise<NextResponse> => {
@@ -83,22 +77,11 @@ const coreHandler = async (request: NextRequest): Promise<NextResponse> => {
   }
   const subdomain = fromDomain.replace(`.${DOMAIN}`, '');
 
-  // Verify SIWX wallet identity
-  const siwxHeader = request.headers.get('SIGN-IN-WITH-X');
-  if (!siwxHeader) {
+  // Extract wallet from x402 payment header
+  const walletAddress = extractPayerWallet(request);
+  if (!walletAddress) {
     return NextResponse.json(
-      { success: false, error: 'Missing SIGN-IN-WITH-X header' },
-      { status: 401 },
-    );
-  }
-
-  let walletAddress: string;
-  try {
-    const payload = parseSIWxHeader(siwxHeader);
-    walletAddress = payload.address.toLowerCase();
-  } catch {
-    return NextResponse.json(
-      { success: false, error: 'Invalid SIGN-IN-WITH-X header' },
+      { success: false, error: 'Could not determine payer wallet' },
       { status: 401 },
     );
   }

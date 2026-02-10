@@ -17,7 +17,7 @@ const ENDPOINTS = [
     method: "POST",
     path: "/api/subdomain/send",
     price: "$0.001",
-    auth: "x402 + SIWX",
+    auth: "x402",
     description: "Send from your subdomain",
   },
   {
@@ -66,7 +66,7 @@ const ENDPOINTS = [
     method: "POST",
     path: "/api/inbox/send",
     price: "$0.0005",
-    auth: "x402 + SIWX",
+    auth: "x402",
     description: "Send from your inbox address",
   },
   {
