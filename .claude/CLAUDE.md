@@ -21,7 +21,7 @@ An x402-protected email sending API. Two tiers:
 - **Auth**: @x402/extensions/sign-in-with-x (SIWX) — shipped extension, CAIP-122 compliant, EVM + Solana
 - **Discovery**: @x402/extensions/bazaar (auto-generated schemas from Zod)
 - **Email**: AWS SES via AWS CLI ($0.0001/email) — SES is in sandbox (200/day), request prod access early
-- **DNS**: Vercel DNS API via `vercel dns` CLI (domain registered on Vercel)
+- **DNS**: AWS Route53 (hosted zone Z03469302BH1RZCVCZS5Z, scoped IAM user x402email-service)
 - **Database**: Prisma ORM + Neon (serverless Postgres) via `neonctl` CLI
 - **Deployment**: Vercel via `vercel` CLI
 - **CLI tools available**: `aws` (authenticated, account 688567285858), `neonctl`, `vercel` (logged in as sragss)
@@ -416,7 +416,7 @@ When a subdomain is purchased:
    ├── VerifyDomainIdentity('alice.x402email.com') → verification token
    └── VerifyDomainDkim('alice.x402email.com') → 3 DKIM tokens
 
-2. Vercel DNS (domain: x402email.com)
+2. Route53 DNS (hosted zone: x402email.com)
    ├── TXT  _amazonses.alice.x402email.com    → <verification-token>
    ├── CNAME <tok1>._domainkey.alice.x402email.com → <tok1>.dkim.amazonses.com
    ├── CNAME <tok2>._domainkey.alice.x402email.com → <tok2>.dkim.amazonses.com
@@ -472,7 +472,7 @@ x402email/
 │   │   │   ├── ses.ts           # AWS SES client (SESv2 SDK)
 │   │   │   └── schemas.ts       # Email Zod schemas
 │   │   ├── dns/
-│   │   │   ├── vercel-dns.ts    # Vercel DNS API client
+│   │   │   ├── route53.ts       # AWS Route53 DNS client (scoped IAM)
 │   │   │   ├── ses-verify.ts    # SES domain verification
 │   │   │   └── provision.ts     # Full subdomain provisioning flow
 │   │   └── db/
@@ -495,13 +495,11 @@ CDP_API_KEY_ID=...
 CDP_API_KEY_SECRET=...
 X402_PAYEE_ADDRESS=0x...
 
-# AWS SES (email sending)
+# AWS (scoped IAM user: SES send + Route53 hosted zone only)
 AWS_ACCESS_KEY_ID=...
 AWS_SECRET_ACCESS_KEY=...
 AWS_REGION=us-east-1
-
-# Vercel (DNS management + deployment)
-VERCEL_TOKEN=...                # Vercel API token (for DNS API calls in production)
+ROUTE53_HOSTED_ZONE_ID=...      # Route53 hosted zone for x402email.com
 
 # Database (Neon serverless Postgres via neonctl)
 DATABASE_URL=...                # Neon connection string (pooled)
@@ -527,7 +525,7 @@ EMAIL_DOMAIN=x402email.com
 9. Test end-to-end: x402 payment → SES send → email delivered
 
 ### Phase 3: Subdomain Purchase
-10. Implement Vercel DNS client (create/delete records via Vercel API)
+10. Implement Route53 DNS client (create records via scoped IAM)
 11. Implement SES domain verification client (VerifyDomainIdentity, VerifyDomainDkim)
 12. Implement subdomain provisioning flow (SES verify → Route53 DNS → DB)
 13. Implement POST /api/subdomain/buy — x402 payment + SIWX extension, provisions subdomain

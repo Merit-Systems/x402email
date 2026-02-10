@@ -1,11 +1,11 @@
 /**
  * Full subdomain provisioning flow:
  * 1. Request SES verification tokens
- * 2. Add DNS records via Vercel DNS
+ * 2. Add DNS records via Route53
  * 3. Return — verification happens asynchronously
  */
 import { requestDomainVerification } from './ses-verify';
-import { addDnsRecords } from './vercel-dns';
+import { addDnsRecords } from './route53';
 
 const DOMAIN = process.env.EMAIL_DOMAIN ?? 'x402email.com';
 
