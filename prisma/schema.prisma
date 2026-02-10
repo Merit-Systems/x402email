@@ -1,0 +1,57 @@
+datasource db {
+  provider = "postgresql"
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+model Subdomain {
+  id          String   @id @default(cuid())
+  name        String   @unique // 'alice' (without .x402email.com)
+  ownerWallet String
+  dnsVerified Boolean  @default(false)
+  sesVerified Boolean  @default(false)
+  paymentTx   String?
+  createdAt   DateTime @default(now())
+  signers     Signer[]
+  sendLogs    SendLog[]
+}
+
+model Signer {
+  id            String    @id @default(cuid())
+  subdomain     Subdomain @relation(fields: [subdomainId], references: [id])
+  subdomainId   String
+  walletAddress String
+  addedAt       DateTime  @default(now())
+
+  @@unique([subdomainId, walletAddress])
+}
+
+model SendLog {
+  id           String     @id @default(cuid())
+  subdomain    Subdomain? @relation(fields: [subdomainId], references: [id])
+  subdomainId  String? // null = shared domain
+  senderWallet String?
+  fromEmail    String
+  toEmails     String[] // Postgres native array
+  subject      String
+  sesMessageId String?
+  createdAt    DateTime @default(now())
+}
+
+// SIWxStorage backing — tracks which wallets paid for which resources
+model SiwxPayment {
+  id            String   @id @default(cuid())
+  resource      String
+  walletAddress String
+  createdAt     DateTime @default(now())
+
+  @@unique([resource, walletAddress])
+}
+
+// Nonce tracking for SIWX replay prevention
+model SiwxNonce {
+  nonce  String   @id
+  usedAt DateTime @default(now())
+}
