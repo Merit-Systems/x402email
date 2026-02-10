@@ -43,7 +43,7 @@ export const PRICES = {
   inboxSend: {
     scheme: 'exact' as const,
     network: NETWORK,
-    price: '0.0005',
+    price: '0.001',
     payTo: PAYEE,
   },
 } as const;

@@ -14,7 +14,7 @@ Every email API requires signup, API keys, billing accounts, and rate limit nego
 
 **Shared domain** — Send from `relay@x402email.com` for **$0.001/email**. No auth, just pay. Good for notifications, alerts, one-off sends.
 
-**Forwarding inbox** — Buy `username@x402email.com` for **$1/month**. Emails forwarded to your real address. Send from your inbox address for $0.0005/email. Bulk discounts: 90 days for $2.50 (save 17%), 365 days for $8 (save 34%). Anyone can top up any inbox. Cancel anytime for a pro-rata refund.
+**Forwarding inbox** — Buy `username@x402email.com` for **$1/month**. Emails forwarded to your real address. Send from your inbox address for $0.001/email. Bulk discounts: 90 days for $2.50 (save 17%), 365 days for $8 (save 34%). Anyone can top up any inbox. Cancel anytime for a pro-rata refund.
 
 **Custom subdomain** — Buy `yourname.x402email.com` for **$5**. Send from `anything@yourname.x402email.com` with full DKIM/SPF/DMARC. Wallet-based auth (SIWX) proves ownership. Up to 50 authorized signer wallets. $0.001/send.
 
@@ -49,7 +49,7 @@ x402 handles payment negotiation automatically. Compatible clients resolve the 4
 | `POST /api/inbox/topup` | x402 | $1 | Extend inbox 30 days |
 | `POST /api/inbox/topup/quarter` | x402 | $2.50 | Extend inbox 90 days (save 17%) |
 | `POST /api/inbox/topup/year` | x402 | $8 | Extend inbox 365 days (save 34%) |
-| `POST /api/inbox/send` | x402 | $0.0005 | Send from your inbox address |
+| `POST /api/inbox/send` | x402 | $0.001 | Send from your inbox address |
 | `GET /api/inbox/status` | SIWX | Free | Check inbox status and expiry |
 | `POST /api/inbox/update` | SIWX | Free | Change forwarding address |
 | `POST /api/inbox/cancel` | SIWX | Free | Cancel inbox, pro-rata refund |
