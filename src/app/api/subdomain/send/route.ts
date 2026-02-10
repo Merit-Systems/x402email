@@ -44,6 +44,7 @@ const extensions = {
   ...declareSIWxExtension({
     statement: 'Sign in to send email from your subdomain',
     expirationSeconds: 300,
+    network: 'eip155:8453',
   }),
 };
 

@@ -1,12 +1,11 @@
 /**
  * POST /api/subdomain/buy — Purchase a subdomain.
- * Protection: x402 payment ($50) + SIWX extension.
- * The buyer's wallet is extracted from the SIWX proof.
+ * Protection: x402 payment ($5).
+ * The buyer's wallet is extracted from the x402 payment header.
  */
 import { NextRequest, NextResponse } from 'next/server';
 import { withX402 } from '@x402/next';
 import { declareDiscoveryExtension } from '@x402/extensions/bazaar';
-import { declareSIWxExtension, parseSIWxHeader } from '@x402/extensions/sign-in-with-x';
 import { z } from 'zod';
 import { getX402Server } from '@/lib/x402/server';
 import { PRICES } from '@/lib/x402/pricing';
@@ -41,13 +40,31 @@ const extensions = {
       },
     },
   } as never),
-  ...declareSIWxExtension({
-    statement: 'Purchase a subdomain on x402email.com',
-    expirationSeconds: 300,
-  }),
 };
 
 const DOMAIN = process.env.EMAIL_DOMAIN ?? 'x402email.com';
+
+/**
+ * Extract the payer wallet address from x402 request headers.
+ * The x-wallet-address header is set by x402 clients after payment.
+ * Falls back to decoding the payment-signature header.
+ */
+function extractPayerWallet(request: NextRequest): string | null {
+  // x402 clients set this header directly
+  const walletHeader = request.headers.get('x-wallet-address') || request.headers.get('x-client-id');
+  if (walletHeader) return walletHeader.toLowerCase();
+
+  // Fallback: decode from payment-signature header
+  const paymentHeader = request.headers.get('payment-signature') || request.headers.get('x-payment');
+  if (!paymentHeader) return null;
+  try {
+    const decoded = JSON.parse(Buffer.from(paymentHeader, 'base64').toString());
+    const from = decoded.payload?.authorization?.from;
+    return from?.toLowerCase() ?? decoded.payer?.toLowerCase() ?? null;
+  } catch {
+    return null;
+  }
+}
 
 const coreHandler = async (request: NextRequest): Promise<NextResponse> => {
   // Parse body
@@ -74,23 +91,12 @@ const coreHandler = async (request: NextRequest): Promise<NextResponse> => {
 
   const { subdomain } = parsed.data;
 
-  // Extract wallet from SIWX header
-  const siwxHeader = request.headers.get('SIGN-IN-WITH-X');
-  if (!siwxHeader) {
+  // Extract wallet from x402 payment header (verified by facilitator before handler runs)
+  const ownerWallet = extractPayerWallet(request);
+  if (!ownerWallet) {
     return NextResponse.json(
-      { success: false, error: 'Missing SIGN-IN-WITH-X header' },
-      { status: 401 },
-    );
-  }
-
-  let ownerWallet: string;
-  try {
-    const payload = parseSIWxHeader(siwxHeader);
-    ownerWallet = payload.address.toLowerCase();
-  } catch {
-    return NextResponse.json(
-      { success: false, error: 'Invalid SIGN-IN-WITH-X header' },
-      { status: 401 },
+      { success: false, error: 'Could not determine payer wallet' },
+      { status: 400 },
     );
   }
 
