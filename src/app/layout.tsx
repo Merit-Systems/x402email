@@ -12,10 +12,28 @@ const geistMono = Geist_Mono({
   subsets: ["latin"],
 });
 
+const title = "x402email";
+const description = "Pay-per-send email. No API keys. No accounts.";
+const url = "https://x402email.com";
+
 export const metadata: Metadata = {
-  title: "x402email — Pay-per-send email via x402",
-  description:
-    "Send email with a single HTTP request. No API keys. Pay $0.001 per email via x402 protocol.",
+  title,
+  description,
+  metadataBase: new URL(url),
+  openGraph: {
+    title,
+    description,
+    url,
+    siteName: title,
+    images: [{ url: "/og.png", width: 2752, height: 1536 }],
+    type: "website",
+  },
+  twitter: {
+    card: "summary_large_image",
+    title,
+    description,
+    images: ["/og.png"],
+  },
 };
 
 export default function RootLayout({
