@@ -26,7 +26,7 @@ Returns 402 with payment requirements. Pay with any x402-compatible client to se
 
 ## Stack
 
-Next.js 15 / Tailwind v4 / Prisma + Neon / AWS SES / Vercel DNS / x402 protocol
+Next.js 16 / Tailwind v4 / Prisma + Neon / AWS SES + Route53 / x402 protocol
 
 ## Development
 
