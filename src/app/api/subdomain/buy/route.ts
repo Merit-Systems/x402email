@@ -12,6 +12,7 @@ import { PRICES } from '@/lib/x402/pricing';
 import { BuySubdomainRequestSchema } from '@/schemas/subdomain';
 import { prisma } from '@/lib/db/client';
 import { provisionSubdomain } from '@/lib/dns/provision';
+import { extractPayerWallet } from '@/lib/x402/extract-wallet';
 
 const inputJsonSchema = z.toJSONSchema(BuySubdomainRequestSchema, {
   target: 'draft-2020-12',
@@ -43,28 +44,6 @@ const extensions = {
 };
 
 const DOMAIN = process.env.EMAIL_DOMAIN ?? 'x402email.com';
-
-/**
- * Extract the payer wallet address from x402 request headers.
- * The x-wallet-address header is set by x402 clients after payment.
- * Falls back to decoding the payment-signature header.
- */
-function extractPayerWallet(request: NextRequest): string | null {
-  // x402 clients set this header directly
-  const walletHeader = request.headers.get('x-wallet-address') || request.headers.get('x-client-id');
-  if (walletHeader) return walletHeader.toLowerCase();
-
-  // Fallback: decode from payment-signature header
-  const paymentHeader = request.headers.get('payment-signature') || request.headers.get('x-payment');
-  if (!paymentHeader) return null;
-  try {
-    const decoded = JSON.parse(Buffer.from(paymentHeader, 'base64').toString());
-    const from = decoded.payload?.authorization?.from;
-    return from?.toLowerCase() ?? decoded.payer?.toLowerCase() ?? null;
-  } catch {
-    return null;
-  }
-}
 
 const coreHandler = async (request: NextRequest): Promise<NextResponse> => {
   // Parse body
@@ -100,13 +79,20 @@ const coreHandler = async (request: NextRequest): Promise<NextResponse> => {
     );
   }
 
-  // Check availability
-  const existing = await prisma.subdomain.findUnique({
-    where: { name: subdomain },
-  });
-  if (existing) {
+  // Cross-table uniqueness check: reject if subdomain OR inbox with this name exists
+  const [existingSubdomain, existingInbox] = await prisma.$transaction([
+    prisma.subdomain.findUnique({ where: { name: subdomain } }),
+    prisma.inbox.findUnique({ where: { username: subdomain } }),
+  ]);
+  if (existingSubdomain) {
     return NextResponse.json(
       { success: false, error: 'Subdomain already taken' },
+      { status: 409 },
+    );
+  }
+  if (existingInbox) {
+    return NextResponse.json(
+      { success: false, error: 'Name already taken as a forwarding inbox' },
       { status: 409 },
     );
   }
