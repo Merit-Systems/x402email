@@ -18,7 +18,7 @@ export async function sendEmail(params: SendEmailParams): Promise<{ messageId: s
   const boundary = `----=_Part_${Date.now()}`;
   const toHeader = params.to.join(', ');
 
-  let rawMessage = [
+  const rawMessage = [
     `From: ${params.from}`,
     `To: ${toHeader}`,
     `Subject: ${params.subject}`,
