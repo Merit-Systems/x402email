@@ -8,13 +8,7 @@ import {
   GetIdentityVerificationAttributesCommand,
 } from '@aws-sdk/client-ses';
 
-const ses = new SESClient({
-  region: (process.env.AWS_REGION ?? 'us-east-1').trim(),
-  credentials: {
-    accessKeyId: (process.env.AWS_ACCESS_KEY_ID ?? '').trim(),
-    secretAccessKey: (process.env.AWS_SECRET_ACCESS_KEY ?? '').trim(),
-  },
-});
+const ses = new SESClient({ region: process.env.AWS_REGION ?? 'us-east-1' });
 const DOMAIN = process.env.EMAIL_DOMAIN ?? 'x402email.com';
 
 interface VerificationTokens {
