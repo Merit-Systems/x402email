@@ -1,11 +1,23 @@
 import { z } from 'zod';
 
-const SUBDOMAIN_REGEX = /^[a-z0-9]([a-z0-9-]{1,28}[a-z0-9])?$/;
-const RESERVED = new Set(['www', 'mail', 'smtp', 'imap', 'pop', 'ftp', 'api', 'admin', 'ns1', 'ns2', 'mx', 'app']);
+// 3-30 chars, lowercase alphanumeric + hyphens, must start/end with alphanumeric, no consecutive hyphens
+const SUBDOMAIN_REGEX = /^[a-z0-9][a-z0-9-]{1,28}[a-z0-9]$/;
+const NO_CONSECUTIVE_HYPHENS = /^(?!.*--)/;
+
+const RESERVED = new Set([
+  // Infrastructure
+  'www', 'mail', 'smtp', 'imap', 'pop', 'ftp', 'api', 'admin', 'ns1', 'ns2', 'mx', 'app',
+  // Email-standard
+  'noreply', 'no-reply', 'postmaster', 'abuse', 'webmaster', 'hostmaster', 'mailer-daemon',
+  // DNS/SES conflict risks (records starting with _ are handled by regex, but block these too)
+  'autoconfig', 'autodiscover', 'localhost', 'test', 'staging', 'dev',
+]);
 
 export const SubdomainNameSchema = z
   .string()
-  .regex(SUBDOMAIN_REGEX, 'Subdomain must be 3-30 lowercase alphanumeric characters or hyphens')
+  .regex(SUBDOMAIN_REGEX, 'Subdomain must be 3-30 lowercase alphanumeric characters or hyphens, starting and ending with alphanumeric')
+  .regex(NO_CONSECUTIVE_HYPHENS, 'Subdomain cannot contain consecutive hyphens')
+  .refine((s) => !s.startsWith('_'), { message: 'Subdomain cannot start with underscore' })
   .refine((s) => !RESERVED.has(s), { message: 'Reserved subdomain name' });
 
 export const BuySubdomainRequestSchema = z.object({
