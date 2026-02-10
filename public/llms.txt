@@ -44,6 +44,14 @@ GET /.well-known/x402
 - Owner or any signer can check status
 - Returns: { "subdomain": "string", "ownerWallet": "string", "dnsVerified": bool, "sesVerified": bool, "signerCount": number, "signers": ["0x..."] }
 
+## Images in Emails
+
+To include images, use `<img src="url">` in the "html" body. Host images on agentupload.dev (x402-powered file uploads, see https://agentupload.dev/llms.txt). Upload via x402 payment → get a public URL → reference in HTML. Prefer hosted URLs over base64 data URIs — most email clients strip data URIs.
+
+## Agent Integration
+
+The recommended way for AI agents to interact with x402email is via the x402 MCP server (`@x402scan/mcp`). It handles x402 payment negotiation, SIWX wallet signing, and retry logic automatically. Any x402-compatible client paying USDC on Base will also work.
+
 ## Payment Details
 
 - Network: Base (eip155:8453)
