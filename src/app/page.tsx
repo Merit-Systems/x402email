@@ -220,19 +220,53 @@ export default function Home() {
 
         {/* Footer */}
         <footer className="border-t border-zinc-200 pt-6 text-xs text-zinc-400 dark:border-zinc-800 dark:text-zinc-600">
-          <a
-            href="https://github.com/Merit-Systems/x402email"
-            className="hover:text-zinc-600 dark:hover:text-zinc-400"
-          >
-            GitHub
-          </a>
-          <span className="mx-2">|</span>
-          <a
-            href="https://www.x402.org"
-            className="hover:text-zinc-600 dark:hover:text-zinc-400"
-          >
-            x402 protocol
-          </a>
+          <p className="mb-4 leading-relaxed">
+            By using this service — whether via the API, an AI agent, or any
+            other client — you agree to our{" "}
+            <a
+              href="/terms"
+              className="underline decoration-zinc-300 underline-offset-2 hover:text-zinc-600 hover:decoration-zinc-500 dark:decoration-zinc-700 dark:hover:text-zinc-400 dark:hover:decoration-zinc-500"
+            >
+              Terms of Service
+            </a>{" "}
+            and{" "}
+            <a
+              href="/privacy"
+              className="underline decoration-zinc-300 underline-offset-2 hover:text-zinc-600 hover:decoration-zinc-500 dark:decoration-zinc-700 dark:hover:text-zinc-400 dark:hover:decoration-zinc-500"
+            >
+              Privacy Policy
+            </a>
+            .
+          </p>
+          <div>
+            <a
+              href="https://github.com/Merit-Systems/x402email"
+              className="hover:text-zinc-600 dark:hover:text-zinc-400"
+            >
+              GitHub
+            </a>
+            <span className="mx-2">|</span>
+            <a
+              href="https://www.x402.org"
+              className="hover:text-zinc-600 dark:hover:text-zinc-400"
+            >
+              x402 protocol
+            </a>
+            <span className="mx-2">|</span>
+            <a
+              href="/terms"
+              className="hover:text-zinc-600 dark:hover:text-zinc-400"
+            >
+              Terms
+            </a>
+            <span className="mx-2">|</span>
+            <a
+              href="/privacy"
+              className="hover:text-zinc-600 dark:hover:text-zinc-400"
+            >
+              Privacy
+            </a>
+          </div>
         </footer>
       </main>
     </div>

@@ -548,21 +548,48 @@ EMAIL_DOMAIN=x402email.com
 24. llms.txt for AI agent discoverability
 25. README + agents.md
 
-## Anti-Abuse
+## Anti-Abuse — SES Platform Risk
 
-- **$50 subdomain price** — natural spam deterrent
-- **Shared domain rate limit** — cap sends per payer wallet per hour (tracked via sendLogs)
-- **Content scanning** — basic checks (no executable attachments, HTML size limits)
-- **Subdomain suspension** — admin ability to flag subdomains in DB
-- **SES bounce/complaint monitoring** — auto-suspend subdomains with high bounce rates
-- **Nonce replay prevention** — siwxNonces table prevents SIWX replay attacks
+**AWS can suspend our entire SES account if bounce rate exceeds 5% or complaint rate exceeds 0.1%.** This kills the service for ALL users — shared domain and every subdomain. The AWS AUP prohibits facilitating unsolicited bulk email, and as an open relay protected only by micropayments, we are high-risk in AWS's eyes. Services like Resend/SendGrid survive by combining TOS (shifts CAN-SPAM liability to user), active abuse detection (content scanning, pattern analysis, auto-suspension), and account gating (manual review, restricted onboarding). We have TOS but lack the enforcement code.
+
+### Implemented today
+- **$50 subdomain price** — economic spam deterrent for subdomain tier
+- **$0.001 per-send cost** — marginal deterrent (100K spam = $100, cheap but nonzero)
+- **Schema validation** — 50 recipient cap, 256KB body limit, subdomain name rules
+- **Send logging** — all sends logged to DB with wallet address (for future analysis)
+- **SIWX nonce replay prevention** — prevents signature reuse
+- **TOS/Privacy Policy** — prohibits spam, CAN-SPAM/GDPR compliance required, states we can suspend wallets/subdomains
+
+### NOT implemented — must build
+- **Per-wallet rate limiting on /api/send** — shared domain is the vulnerability. A single wallet can currently send 200/day (sandbox limit) with no throttling. In production there's no cap at all.
+- **SES bounce/complaint event handling** — need SNS topic → webhook. Track per-wallet and per-subdomain bounce/complaint rates. Auto-block wallets exceeding thresholds (5% bounce, 0.1% complaint).
+- **Wallet/subdomain suspension mechanism** — need a `suspended` flag on Subdomain model and a wallet blocklist table. Check on every send.
+- **Content scanning** — at minimum reject executable attachments and known phishing patterns. SES itself rejects some content but we should filter before sending.
+- **Admin tooling** — ability to manually suspend a wallet or subdomain when abuse is reported.
+
+### Priority order
+1. **Bounce/complaint webhooks + auto-block** — highest priority. Without this, one bad actor tanks the whole account.
+2. **Per-wallet rate limiting** — cap shared domain sends per wallet per hour.
+3. **Suspension mechanism** — `suspended` column + blocklist check in send handlers.
+4. **Content scanning** — basic keyword/pattern + attachment type filtering.
+
+### Subdomain MAIL FROM — not needed
+Custom MAIL FROM (`m.x402email.com`) is set up for the shared domain only. Subdomains don't need their own custom MAIL FROM because DMARC only requires ONE of SPF or DKIM to align, and each subdomain has its own DKIM keys which align with the From header. Adding per-subdomain MAIL FROM would add complexity to provisioning for marginal benefit.
+
+### Google Postmaster Tools
+Verified for `x402email.com`. Covers all `*.x402email.com` subdomains — Google aggregates at the organizational domain level. Data only appears at ~100+ daily sends to Gmail.
 
 ## Open Questions
 
-1. **SES sandbox**: New AWS accounts start in sandbox (200 emails/day, verified recipients only). Request production access early — takes 1-2 business days.
-2. **Subdomain verification polling**: On-demand (check when status endpoint hit) vs background job. Start with on-demand.
-3. **ocpemail.com**: Reserve for future use or set up as alias domain?
-4. **Smart wallet support**: SIWX supports EIP-1271/EIP-6492 for smart wallets via optional `evmVerifier`. Add in Phase 6 if needed.
+1. **Subdomain verification polling**: On-demand (check when status endpoint hit) vs background job. Start with on-demand.
+2. **ocpemail.com**: Reserve for future use or set up as alias domain?
+3. **Smart wallet support**: SIWX supports EIP-1271/EIP-6492 for smart wallets via optional `evmVerifier`. Add in Phase 6 if needed.
+
+## Monitoring & Deliverability
+
+- **Google Postmaster Tools**: https://postmaster.google.com/managedomains — monitors how Gmail treats our emails (spam rate, auth errors, delivery problems). Domain verified via TXT record.
+- **SES Dashboard**: https://us-east-1.console.aws.amazon.com/ses/home?region=us-east-1#/account — bounce/complaint rates, sending quotas, reputation status.
+- **Custom MAIL FROM**: `m.x402email.com` — ensures SPF alignment with DMARC (envelope sender matches From domain). MX + SPF TXT records in Route53.
 
 ## Development Commands
 
