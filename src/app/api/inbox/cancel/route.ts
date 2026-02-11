@@ -109,9 +109,10 @@ export async function POST(request: NextRequest) {
     // Refund transfer failed — inbox is already deactivated, log the failure
     console.error('[x402email] Refund transfer failed:', refundResult.error);
     return NextResponse.json({
-      success: true,
+      success: false,
       inbox: `${username}@${DOMAIN}`,
       cancelled: true,
+      error: 'Inbox cancelled but refund transfer failed. Contact support.',
       refund: {
         amount: `${refundAmount}`,
         currency: 'USDC',
@@ -119,10 +120,9 @@ export async function POST(request: NextRequest) {
         to: refundTo,
         status: 'failed',
         error: refundResult.error,
-        note: 'Inbox cancelled but refund transfer failed. Contact support.',
       },
       daysRemaining: Math.floor(daysRemaining),
-    });
+    }, { status: 500 });
   }
 
   // Refund too small to send

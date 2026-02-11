@@ -16,6 +16,8 @@ model Subdomain {
   createdAt   DateTime @default(now())
   signers     Signer[]
   sendLogs    SendLog[]
+
+  @@index([ownerWallet])
 }
 
 model Signer {
@@ -38,6 +40,8 @@ model Inbox {
   lastReminderAt DateTime?
   createdAt      DateTime  @default(now())
   sendLogs       SendLog[]
+
+  @@index([ownerWallet])
 }
 
 model SendLog {

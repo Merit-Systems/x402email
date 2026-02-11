@@ -18,11 +18,11 @@ export const BuyInboxRequestSchema = z.object({
 });
 
 export const TopupInboxRequestSchema = z.object({
-  username: z.string().min(3).max(30),
+  username: InboxUsernameSchema,
 });
 
 export const InboxSendRequestSchema = z.object({
-  username: z.string().min(3).max(30),
+  username: InboxUsernameSchema,
   to: z.array(z.string().email()).min(1).max(50),
   subject: z.string().min(1).max(998),
   html: z.string().max(256_000).optional(),
@@ -34,12 +34,12 @@ export const InboxSendRequestSchema = z.object({
 );
 
 export const UpdateInboxRequestSchema = z.object({
-  username: z.string().min(3).max(30),
+  username: InboxUsernameSchema,
   forwardTo: z.string().email(),
 });
 
 export const CancelInboxRequestSchema = z.object({
-  username: z.string().min(3).max(30),
+  username: InboxUsernameSchema,
   refundAddress: z.string().regex(/^0x[a-fA-F0-9]{40}$/, 'Invalid EVM wallet address').optional(),
 });
 

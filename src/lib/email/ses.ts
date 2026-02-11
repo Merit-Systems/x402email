@@ -14,19 +14,24 @@ interface SendEmailParams {
   replyTo?: string;
 }
 
+/** Strip CR/LF to prevent email header injection. */
+function sanitizeHeader(value: string): string {
+  return value.replace(/[\r\n]/g, '');
+}
+
 export async function sendEmail(params: SendEmailParams): Promise<{ messageId: string }> {
   const boundary = `----=_Part_${Date.now()}`;
-  const toHeader = params.to.join(', ');
+  const toHeader = params.to.map(sanitizeHeader).join(', ');
 
   const rawMessage = [
-    `From: ${params.from}`,
+    `From: ${sanitizeHeader(params.from)}`,
     `To: ${toHeader}`,
-    `Subject: ${params.subject}`,
+    `Subject: ${sanitizeHeader(params.subject)}`,
     `MIME-Version: 1.0`,
   ];
 
   if (params.replyTo) {
-    rawMessage.push(`Reply-To: ${params.replyTo}`);
+    rawMessage.push(`Reply-To: ${sanitizeHeader(params.replyTo)}`);
   }
 
   if (params.html && params.text) {

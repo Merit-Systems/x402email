@@ -9,12 +9,14 @@ import { buildReminderEmailHtml, buildReminderEmailText } from '@/lib/email/temp
 
 const DOMAIN = process.env.EMAIL_DOMAIN ?? 'x402email.com';
 const BASE_URL = process.env.NEXT_PUBLIC_BASE_URL || 'https://x402email.com';
-const CRON_SECRET = process.env.CRON_SECRET ?? '';
 
 export async function GET(request: NextRequest) {
-  // Verify cron secret
+  const cronSecret = process.env.CRON_SECRET;
+  if (!cronSecret) {
+    return NextResponse.json({ error: 'CRON_SECRET not configured' }, { status: 500 });
+  }
   const authHeader = request.headers.get('authorization');
-  if (!CRON_SECRET || authHeader !== `Bearer ${CRON_SECRET}`) {
+  if (authHeader !== `Bearer ${cronSecret}`) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 

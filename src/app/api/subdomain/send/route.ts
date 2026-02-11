@@ -1,6 +1,6 @@
 /**
  * POST /api/subdomain/send — Send email from a custom subdomain.
- * Protection: x402 payment ($0.001). Wallet identity extracted from payment.
+ * Protection: x402 payment ($0.005). Wallet identity extracted from payment.
  */
 import { NextRequest, NextResponse } from 'next/server';
 import { withX402 } from '@x402/next';
@@ -111,9 +111,9 @@ const coreHandler = async (request: NextRequest): Promise<NextResponse> => {
     );
   }
 
-  if (!subdomainRecord.sesVerified) {
+  if (!subdomainRecord.dnsVerified || !subdomainRecord.sesVerified) {
     return NextResponse.json(
-      { success: false, error: 'Subdomain email not yet verified — check /api/subdomain/status' },
+      { success: false, error: 'Subdomain not yet verified — check /api/subdomain/status' },
       { status: 503 },
     );
   }

@@ -11,17 +11,21 @@ import { x402Client, x402HTTPClient } from '@x402/core/client';
 import { registerExactEvmScheme } from '@x402/evm/exact/client';
 import { getUsdcBalance } from '@/lib/x402/balance';
 
-const CRON_SECRET = process.env.CRON_SECRET ?? '';
-const TREASURY_ADDRESS = process.env.TREASURY_WALLET_ADDRESS ?? '';
 const BUFFER = 10; // Keep $10 in operational wallet for refunds
 const SWEEP_THRESHOLD = 20; // Only sweep when above $20
 const X402SCAN_SEND_URL = 'https://x402scan.com/api/send';
 
 export async function GET(request: NextRequest) {
+  const cronSecret = process.env.CRON_SECRET;
+  if (!cronSecret) {
+    return NextResponse.json({ error: 'CRON_SECRET not configured' }, { status: 500 });
+  }
   const authHeader = request.headers.get('authorization');
-  if (authHeader !== `Bearer ${CRON_SECRET}`) {
+  if (authHeader !== `Bearer ${cronSecret}`) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
+
+  const TREASURY_ADDRESS = process.env.TREASURY_WALLET_ADDRESS ?? '';
 
   const operationalKey = process.env.OPERATIONAL_WALLET_PRIVATE_KEY;
   if (!operationalKey) {
