@@ -1,20 +1,110 @@
 /**
- * POST /api/inbox/_forward — Internal SNS webhook for inbound email forwarding.
+ * POST /api/inbox/forward — Internal SNS webhook for inbound email forwarding.
  * NOT x402-protected, NOT SIWX-protected.
- * Receives SES inbound email notifications from SNS, forwards to inbox owner.
  *
- * NOTE: This route is a stub until AWS infrastructure is configured:
- * - MX record on x402email.com pointing to SES inbound
- * - SES Receipt Rule to store email in S3 and notify SNS
- * - S3 bucket for inbound email storage
- * - SNS topic subscribed to this endpoint
+ * Flow: Email → SES inbound → S3 + SNS → this handler → fetch from S3 → forward via SES.
  */
 import { NextRequest, NextResponse } from 'next/server';
+import { SESClient, SendRawEmailCommand } from '@aws-sdk/client-ses';
 import { prisma } from '@/lib/db/client';
-import { sendEmail } from '@/lib/email/ses';
+import { getRawEmail, deleteRawEmail } from '@/lib/email/s3';
 
 const DOMAIN = process.env.EMAIL_DOMAIN ?? 'x402email.com';
 const EXPECTED_TOPIC_ARN = process.env.SNS_TOPIC_ARN ?? '';
+const ses = new SESClient({ region: process.env.AWS_REGION ?? 'us-east-1' });
+
+/**
+ * Rewrite email headers for forwarding. Operates on the raw RFC 2822 message:
+ * - Replace From with relay address (preserving original sender name)
+ * - Replace To with the forwarding destination
+ * - Add Reply-To pointing to original sender
+ * - Add X-Forwarded-For with original recipient
+ * - Keep Subject, body, and all attachments untouched
+ */
+function rewriteHeadersForForward(
+  raw: Buffer,
+  opts: { forwardTo: string; originalFrom: string; originalTo: string },
+): Buffer {
+  const text = raw.toString('utf-8');
+
+  // Split headers from body at the first blank line
+  const headerEndIndex = text.indexOf('\r\n\r\n');
+  if (headerEndIndex === -1) {
+    // Malformed email — try LF-only
+    const lfIndex = text.indexOf('\n\n');
+    if (lfIndex === -1) return raw; // give up, forward as-is
+    const headers = text.slice(0, lfIndex);
+    const body = text.slice(lfIndex);
+    return Buffer.from(rewriteHeaders(headers, opts, '\n') + body, 'utf-8');
+  }
+
+  const headers = text.slice(0, headerEndIndex);
+  const body = text.slice(headerEndIndex);
+  return Buffer.from(rewriteHeaders(headers, opts, '\r\n') + body, 'utf-8');
+}
+
+function rewriteHeaders(
+  headers: string,
+  opts: { forwardTo: string; originalFrom: string; originalTo: string },
+  lineEnding: string,
+): string {
+  const lines = headers.split(lineEnding);
+  const newLines: string[] = [];
+  let hasReplyTo = false;
+
+  // Extract display name from original From if present
+  const fromMatch = opts.originalFrom.match(/^"?([^"<]*)"?\s*<(.+)>$/);
+  const senderName = fromMatch ? fromMatch[1].trim() : opts.originalFrom.split('@')[0];
+  const senderEmail = fromMatch ? fromMatch[2] : opts.originalFrom;
+
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i];
+
+    // Skip continuation lines (folded headers) — they start with whitespace
+    // We handle them by checking the header name of the current "unfolded" header
+    const isFrom = /^From:/i.test(line);
+    const isTo = /^To:/i.test(line);
+    const isReplyTo = /^Reply-To:/i.test(line);
+    const isReturnPath = /^Return-Path:/i.test(line);
+    const isDkimSig = /^DKIM-Signature:/i.test(line);
+
+    if (isFrom) {
+      // Skip original From (and any continuation lines)
+      while (i + 1 < lines.length && /^\s/.test(lines[i + 1])) i++;
+      newLines.push(`From: "${senderName} via x402email" <relay@${DOMAIN}>`);
+    } else if (isTo) {
+      // Skip original To (and any continuation lines)
+      while (i + 1 < lines.length && /^\s/.test(lines[i + 1])) i++;
+      newLines.push(`To: ${opts.forwardTo}`);
+    } else if (isReplyTo) {
+      // Replace existing Reply-To
+      while (i + 1 < lines.length && /^\s/.test(lines[i + 1])) i++;
+      newLines.push(`Reply-To: ${senderEmail}`);
+      hasReplyTo = true;
+    } else if (isReturnPath) {
+      // Replace Return-Path to avoid bounce issues
+      while (i + 1 < lines.length && /^\s/.test(lines[i + 1])) i++;
+      newLines.push(`Return-Path: <relay@${DOMAIN}>`);
+    } else if (isDkimSig) {
+      // Strip original DKIM signature — it will fail after header rewrite
+      while (i + 1 < lines.length && /^\s/.test(lines[i + 1])) i++;
+      // Don't add it
+    } else {
+      newLines.push(line);
+    }
+  }
+
+  // Add Reply-To if not already present
+  if (!hasReplyTo) {
+    newLines.push(`Reply-To: ${senderEmail}`);
+  }
+
+  // Add forwarding metadata
+  newLines.push(`X-Forwarded-For: ${opts.originalTo}`);
+  newLines.push(`X-Forwarded-By: x402email`);
+
+  return newLines.join(lineEnding);
+}
 
 export async function POST(request: NextRequest) {
   let body: Record<string, unknown>;
@@ -31,7 +121,6 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ status: 'error', message: 'Missing SubscribeURL' }, { status: 400 });
     }
 
-    // Validate TopicArn
     if (EXPECTED_TOPIC_ARN && body.TopicArn !== EXPECTED_TOPIC_ARN) {
       console.error('[x402email] SNS topic mismatch:', body.TopicArn);
       return NextResponse.json({ status: 'error' }, { status: 403 });
@@ -51,7 +140,6 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ status: 'ignored' });
   }
 
-  // Validate TopicArn
   if (EXPECTED_TOPIC_ARN && body.TopicArn !== EXPECTED_TOPIC_ARN) {
     console.error('[x402email] SNS topic mismatch:', body.TopicArn);
     return NextResponse.json({ status: 'error' }, { status: 403 });
@@ -65,7 +153,6 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ status: 'ok' });
   }
 
-  // SES notification structure
   const receipt = message.receipt as Record<string, unknown> | undefined;
   const mail = message.mail as Record<string, unknown> | undefined;
 
@@ -74,43 +161,68 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ status: 'ok' });
   }
 
+  // Extract S3 location from the receipt action
+  const action = receipt.action as Record<string, unknown> | undefined;
+  const objectKey = action?.objectKey as string | undefined;
+
+  if (!objectKey) {
+    console.error('[x402email] Missing S3 object key in SES receipt action');
+    return NextResponse.json({ status: 'ok' });
+  }
+
   const recipients = receipt.recipients as string[] | undefined;
   if (!recipients?.length) {
     return NextResponse.json({ status: 'ok' });
   }
 
+  const originalFrom = (mail.source as string) ?? 'unknown@unknown';
+
+  // Fetch the raw email from S3 once (shared across all recipients)
+  let rawEmail: Buffer;
+  try {
+    rawEmail = await getRawEmail(objectKey);
+  } catch (error) {
+    console.error('[x402email] Failed to fetch email from S3:', error);
+    return NextResponse.json({ status: 'ok' });
+  }
+
   // Process each recipient
+  let forwarded = 0;
   for (const recipient of recipients) {
     const username = recipient.split('@')[0]?.toLowerCase();
     if (!username) continue;
 
     const inbox = await prisma.inbox.findUnique({ where: { username } });
-
-    // Silently discard if inbox not found, inactive, or expired
     if (!inbox || !inbox.active || inbox.expiresAt < new Date()) {
       continue;
     }
 
-    // Extract original sender info from mail headers
-    const from = (mail.source as string) ?? 'unknown@unknown';
-    const subject = ((mail.commonHeaders as Record<string, unknown>)?.subject as string) ?? '(no subject)';
-
-    // Forward via SES — simplified forwarding without raw email (S3 integration needed for full fidelity)
-    // TODO: When S3 bucket is configured, fetch raw email from S3 and use SendRawEmailCommand
-    // for full-fidelity forwarding with attachments
     try {
-      await sendEmail({
-        from: `relay@${DOMAIN}`,
-        to: [inbox.forwardTo],
-        subject: `Fwd: ${subject}`,
-        text: `Forwarded from ${from} to ${recipient}\n\nOriginal email body not available — S3 inbound storage not yet configured.`,
-        replyTo: from,
+      const rewritten = rewriteHeadersForForward(rawEmail, {
+        forwardTo: inbox.forwardTo,
+        originalFrom,
+        originalTo: recipient,
       });
+
+      await ses.send(new SendRawEmailCommand({
+        RawMessage: { Data: rewritten },
+      }));
+
+      forwarded++;
+      console.log(`[x402email] Forwarded ${recipient} → ${inbox.forwardTo}`);
     } catch (error) {
       console.error(`[x402email] Forward error for ${recipient}:`, error);
     }
   }
 
-  // Always return 200 (SNS requirement)
-  return NextResponse.json({ status: 'ok' });
+  // Clean up S3 object after processing
+  if (forwarded > 0) {
+    try {
+      await deleteRawEmail(objectKey);
+    } catch {
+      // Non-critical — lifecycle rule will clean up anyway
+    }
+  }
+
+  return NextResponse.json({ status: 'ok', forwarded });
 }
