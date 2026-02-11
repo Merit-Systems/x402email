@@ -113,6 +113,7 @@ const coreHandler = async (request: NextRequest): Promise<NextResponse> => {
       html: body.html,
       text: body.text,
       replyTo: body.replyTo,
+      attachments: body.attachments,
     });
 
     await prisma.sendLog.create({
