@@ -90,12 +90,13 @@ Buy `username@x402email.com` for $1/month. Emails sent to that address are forwa
 - Body: { "username": "alice", "forwardTo": "newemail@example.com" }
 - Returns: { "success": true, "inbox": "alice@x402email.com", "forwardTo": "newemail@example.com" }
 
-### POST /api/inbox/cancel — Cancel inbox and get pro-rata refund
+### POST /api/inbox/cancel — Cancel inbox and get pro-rata USDC refund
 - Protection: SIWX wallet proof only (free, no payment)
 - Only the inbox owner can cancel
-- Body: { "username": "alice", "refundAddress": "0x..." }
-- refundAddress is optional, defaults to caller's wallet
-- Returns: { "success": true, "inbox": "alice@x402email.com", "cancelled": true, "refund": { "amount": "0.50", "currency": "USDC", "network": "eip155:8453", "to": "0x...", "status": "pending" }, "daysRemaining": 15 }
+- Body: { "username": "alice" }
+- Refund is sent on-chain to the caller's wallet automatically
+- Refunds below $0.01 are waived (too small to transfer)
+- Returns: { "success": true, "inbox": "alice@x402email.com", "cancelled": true, "refund": { "amount": "0.50", "currency": "USDC", "network": "eip155:8453", "to": "0x...", "status": "completed", "transactionHash": "0x..." }, "daysRemaining": 15 }
 
 ## Images in Emails
 
@@ -114,5 +115,8 @@ The recommended way for AI agents to interact with x402email is via the x402 MCP
 
 ## SIWX Authentication
 
-Free management endpoints (status, update, cancel, signers) require SIGN-IN-WITH-X header for wallet identity verification. Send endpoints identify the wallet from the x402 payment header instead.
+Free management endpoints (status, update, cancel, signers) use SIWX for wallet identity verification. These endpoints return a 402 with SIWX challenge in the PAYMENT-REQUIRED header (same flow as x402 payment). x402-compatible clients (like the x402 MCP) handle this automatically — no special handling needed.
+
+Paid send endpoints identify the wallet from the x402 payment header instead.
+
 SIWX is part of the x402 protocol extensions (CAIP-122 compliant, supports EVM + Solana).
