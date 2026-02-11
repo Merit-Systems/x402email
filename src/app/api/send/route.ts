@@ -40,6 +40,7 @@ export const POST = createX402PostRoute({
         html: body.html,
         text: body.text,
         replyTo: body.replyTo,
+        attachments: body.attachments,
       });
 
       // Log the send

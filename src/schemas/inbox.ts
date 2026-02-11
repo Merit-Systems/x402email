@@ -21,6 +21,8 @@ export const TopupInboxRequestSchema = z.object({
   username: InboxUsernameSchema,
 });
 
+import { AttachmentSchema } from './send';
+
 export const InboxSendRequestSchema = z.object({
   username: InboxUsernameSchema,
   to: z.array(z.string().email()).min(1).max(50),
@@ -28,6 +30,7 @@ export const InboxSendRequestSchema = z.object({
   html: z.string().max(256_000).optional(),
   text: z.string().max(256_000).optional(),
   replyTo: z.string().email().optional(),
+  attachments: z.array(AttachmentSchema).max(5).optional(),
 }).refine(
   (data) => data.html || data.text,
   { message: 'Either html or text body is required' },

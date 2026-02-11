@@ -34,6 +34,8 @@ export const SubdomainStatusResponseSchema = z.object({
 });
 
 // Subdomain send extends the base send schema with a from field
+import { AttachmentSchema } from './send';
+
 export const SubdomainSendRequestSchema = z.object({
   from: z.string().email(),
   to: z.array(z.string().email()).min(1).max(50),
@@ -41,6 +43,7 @@ export const SubdomainSendRequestSchema = z.object({
   html: z.string().max(256_000).optional(),
   text: z.string().max(256_000).optional(),
   replyTo: z.string().email().optional(),
+  attachments: z.array(AttachmentSchema).max(5).optional(),
 }).refine(
   (data) => data.html || data.text,
   { message: 'Either html or text body is required' },
