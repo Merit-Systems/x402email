@@ -58,7 +58,7 @@ export async function GET(request: NextRequest) {
       };
 
       await sendEmail({
-        from: `relay@${DOMAIN}`,
+        from: `"x402email" <relay@${DOMAIN}>`,
         to: [inbox.forwardTo],
         subject: `Your inbox ${inbox.username}@${DOMAIN} expires soon`,
         html: buildReminderEmailHtml(params),

@@ -11,7 +11,7 @@ import { sendEmail } from '@/lib/email/ses';
 import { prisma } from '@/lib/db/client';
 
 const DOMAIN = process.env.EMAIL_DOMAIN ?? 'x402email.com';
-const FROM = `relay@${DOMAIN}`;
+const FROM = `"x402email" <relay@${DOMAIN}>`;
 
 export const POST = createX402PostRoute({
   description: `Send an email from ${FROM} ($0.02 via x402)`,
