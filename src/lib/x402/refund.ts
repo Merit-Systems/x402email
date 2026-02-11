@@ -17,9 +17,9 @@ interface RefundResult {
 }
 
 function getRefundClient(): x402HTTPClient {
-  const privateKey = process.env.REFUND_WALLET_PRIVATE_KEY;
+  const privateKey = process.env.OPERATIONAL_WALLET_PRIVATE_KEY;
   if (!privateKey) {
-    throw new Error('REFUND_WALLET_PRIVATE_KEY not configured');
+    throw new Error('OPERATIONAL_WALLET_PRIVATE_KEY not configured');
   }
 
   const account = privateKeyToAccount(privateKey as `0x${string}`);
