@@ -76,6 +76,8 @@ export async function GET(request: NextRequest) {
     }
   }
 
+  console.log(`[inbox-reminders] Deactivated: ${deactivated.count}, reminders sent: ${remindersSent}, checked: ${expiring.length}`);
+
   return NextResponse.json({
     success: true,
     deactivated: deactivated.count,
