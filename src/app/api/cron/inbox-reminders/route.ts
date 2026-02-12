@@ -48,6 +48,9 @@ export async function GET(request: NextRequest) {
   let remindersSent = 0;
 
   for (const inbox of expiring) {
+    // Skip inboxes without a forwarding address (programmatic-only mailboxes)
+    if (!inbox.forwardTo) continue;
+
     try {
       const params = {
         username: inbox.username,

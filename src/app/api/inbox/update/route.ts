@@ -59,7 +59,7 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  const updateData: { forwardTo?: string; retainMessages?: boolean } = {};
+  const updateData: { forwardTo?: string | null; retainMessages?: boolean } = {};
   if (forwardTo !== undefined) updateData.forwardTo = forwardTo;
   if (retainMessages !== undefined) updateData.retainMessages = retainMessages;
 

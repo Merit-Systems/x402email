@@ -10,8 +10,10 @@ Pay-per-send email via x402. No API keys. Fund a wallet, send email.
 An x402-protected email sending API. Three tiers:
 
 1. **Shared domain** — send from `relay@x402email.com` for $0.02/email, x402 payment only, no auth
-2. **Forwarding inbox** — buy `username@x402email.com` for $1/month, emails forwarded to your real address, send from your inbox for $0.005/email
+2. **Inbox** — buy `username@x402email.com` for $1/month, optionally forward to your real address, and/or retain messages for programmatic access via the messages API. Send from your inbox for $0.005/email. If `forwardTo` is omitted on buy, `retainMessages` is enabled automatically.
 3. **Custom subdomain** — buy `alice.x402email.com` for $5 via x402, send from `anything@alice.x402email.com` for $0.005/email, wallet identity extracted from x402 payment. Up to 50 authorized signer wallets per subdomain.
+
+Subdomain owners can also buy the matching inbox name (e.g., owner of `alice.x402email.com` can buy `alice@x402email.com`). The same wallet must own both.
 
 ## Tech Stack
 

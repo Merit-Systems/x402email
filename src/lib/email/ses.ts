@@ -2,6 +2,7 @@ import {
   SESClient,
   SendRawEmailCommand,
 } from '@aws-sdk/client-ses';
+import { randomUUID } from 'crypto';
 
 const ses = new SESClient({ region: process.env.AWS_REGION ?? 'us-east-1' });
 
@@ -43,8 +44,8 @@ export async function sendEmail(params: SendEmailParams): Promise<{ messageId: s
 
   if (hasAttachments) {
     // multipart/mixed: body part(s) + attachment(s)
-    const mixedBoundary = `----=_Mixed_${Date.now()}`;
-    const altBoundary = `----=_Alt_${Date.now()}`;
+    const mixedBoundary = `----=_Mixed_${randomUUID()}`;
+    const altBoundary = `----=_Alt_${randomUUID()}`;
 
     rawMessage.push(
       `Content-Type: multipart/mixed; boundary="${mixedBoundary}"`,
@@ -102,7 +103,7 @@ export async function sendEmail(params: SendEmailParams): Promise<{ messageId: s
     rawMessage.push(`--${mixedBoundary}--`);
   } else {
     // No attachments -- simple body
-    const boundary = `----=_Part_${Date.now()}`;
+    const boundary = `----=_Part_${randomUUID()}`;
 
     if (params.html && params.text) {
       rawMessage.push(

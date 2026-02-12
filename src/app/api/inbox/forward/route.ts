@@ -240,21 +240,24 @@ export async function POST(request: NextRequest) {
       continue;
     }
 
-    try {
-      const rewritten = rewriteHeadersForForward(rawEmail, {
-        forwardTo: inbox.forwardTo,
-        originalFrom,
-        originalTo: recipient,
-      });
+    // Forward if the inbox has a forwarding address
+    if (inbox.forwardTo) {
+      try {
+        const rewritten = rewriteHeadersForForward(rawEmail, {
+          forwardTo: inbox.forwardTo,
+          originalFrom,
+          originalTo: recipient,
+        });
 
-      await ses.send(new SendRawEmailCommand({
-        RawMessage: { Data: rewritten },
-      }));
+        await ses.send(new SendRawEmailCommand({
+          RawMessage: { Data: rewritten },
+        }));
 
-      forwarded++;
-      console.log(`[x402email] Forwarded ${recipient} → ${inbox.forwardTo}`);
-    } catch (error) {
-      console.error(`[x402email] Forward error for ${recipient}:`, error);
+        forwarded++;
+        console.log(`[x402email] Forwarded ${recipient} → ${inbox.forwardTo}`);
+      } catch (error) {
+        console.error(`[x402email] Forward error for ${recipient}:`, error);
+      }
     }
 
     // Retain message in S3 if inbox has retention enabled
@@ -277,7 +280,7 @@ export async function POST(request: NextRequest) {
   }
 
   // Clean up S3 object after processing — only if no inbox is retaining it
-  if (forwarded > 0 && !retainedAny) {
+  if (!retainedAny) {
     try {
       await deleteRawEmail(objectKey);
     } catch {

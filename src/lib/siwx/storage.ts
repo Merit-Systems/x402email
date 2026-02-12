@@ -24,5 +24,14 @@ export class DatabaseSIWxStorage implements SIWxStorage {
 
   async recordNonce(nonce: string): Promise<void> {
     await prisma.siwxNonce.create({ data: { nonce } });
+
+    // Probabilistic cleanup (~1% of calls): delete nonces older than 24h.
+    // SIWX nonces expire after 5 minutes, so 24h is very generous.
+    if (Math.random() < 0.01) {
+      const cutoff = new Date(Date.now() - 24 * 60 * 60 * 1000);
+      await prisma.siwxNonce.deleteMany({ where: { usedAt: { lt: cutoff } } }).catch((err) => {
+        console.error('[x402email] SiwxNonce cleanup failed:', err);
+      });
+    }
   }
 }

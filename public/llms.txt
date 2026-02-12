@@ -48,14 +48,15 @@ GET /.well-known/x402
 
 ## Forwarding Inbox
 
-Buy `username@x402email.com` for $1/month. Emails sent to that address are forwarded to your real email. You can also send from your inbox address. Duration-based pricing with bulk discounts. Anyone can top up any inbox. Cancel anytime for a pro-rata refund.
+Buy `username@x402email.com` for $1/month. Use it as a forwarding inbox (emails forwarded to your real address), a programmatic mailbox (read messages via API), or both. You can also send from your inbox address. Duration-based pricing with bulk discounts. Anyone can top up any inbox. Cancel anytime for a pro-rata refund.
 
-### POST /api/inbox/buy — Buy a forwarding inbox ($1, 30 days)
+### POST /api/inbox/buy — Buy an inbox ($1, 30 days)
 - Protection: x402 payment ($1 USDC on Base)
 - Body: { "username": "alice", "forwardTo": "alice@gmail.com" }
+- forwardTo is optional — omit it to use as a programmatic mailbox (retainMessages enabled automatically, read messages via /api/inbox/messages)
 - Username rules: 3-30 chars, lowercase alphanumeric + hyphens
 - Subdomain owners can buy the matching inbox name (e.g., owner of alice.x402email.com can buy alice@x402email.com)
-- Returns: { "success": true, "inbox": "alice@x402email.com", "forwardTo": "alice@gmail.com", "expiresAt": "ISO date", "daysRemaining": 30 }
+- Returns: { "success": true, "inbox": "alice@x402email.com", "retainMessages": true, "expiresAt": "ISO date", "daysRemaining": 30 }
 
 ### POST /api/inbox/topup — Top up inbox 30 days ($1)
 - Protection: x402 payment ($1 USDC)
