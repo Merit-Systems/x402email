@@ -1,10 +1,14 @@
 import { NextResponse } from 'next/server';
+import { Prisma } from '@prisma/client';
 import { prisma } from '@/lib/db/client';
 import { TopupInboxRequestSchema } from '@/schemas/inbox';
 
 /**
  * Factory function that creates a topup handler for a given duration.
  * All three topup routes call this with different daysToAdd values.
+ *
+ * Uses an atomic SQL update to avoid TOCTOU race conditions — two
+ * concurrent topups both correctly extend from the latest expiresAt.
  */
 export function createTopupHandler(daysToAdd: number) {
   return async (body: unknown): Promise<NextResponse> => {
@@ -32,18 +36,19 @@ export function createTopupHandler(daysToAdd: number) {
       );
     }
 
-    // New expiry: max(expiresAt, now) + daysToAdd
-    const base = inbox.expiresAt > new Date() ? inbox.expiresAt : new Date();
-    const newExpiry = new Date(base.getTime() + daysToAdd * 24 * 60 * 60 * 1000);
+    // Atomic update: extends from max(expiresAt, now) + interval
+    // This avoids race conditions where two concurrent topups read the
+    // same expiresAt and only one extension takes effect.
+    const interval = Prisma.sql`${daysToAdd} * INTERVAL '1 day'`;
+    const rows = await prisma.$queryRaw<Array<{ expires_at: Date }>>`
+      UPDATE "Inbox"
+      SET "expiresAt" = GREATEST("expiresAt", NOW()) + ${interval},
+          "active" = true
+      WHERE "username" = ${username}
+      RETURNING "expiresAt" AS expires_at
+    `;
 
-    await prisma.inbox.update({
-      where: { username },
-      data: {
-        expiresAt: newExpiry,
-        active: true, // re-activate expired inboxes
-      },
-    });
-
+    const newExpiry = rows[0].expires_at;
     const daysRemaining = Math.ceil((newExpiry.getTime() - Date.now()) / (24 * 60 * 60 * 1000));
 
     return NextResponse.json({
