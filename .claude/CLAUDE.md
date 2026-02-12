@@ -569,7 +569,10 @@ EMAIL_DOMAIN=x402email.com
 - **$0.001 per-send cost** — marginal deterrent (100K spam = $100, cheap but nonzero)
 - **Schema validation** — 50 recipient cap, 256KB body limit, subdomain name rules
 - **Send logging** — all sends logged to DB with wallet address (for future analysis)
-- **SIWX nonce replay prevention** — prevents signature reuse
+- **SIWX nonce replay prevention** — nonces recorded in SiwxNonce table, prevents signature reuse
+- **Wallet identity from payment-signature only** — `extractPayerWallet` only trusts the cryptographically-signed payment header, not client-set convenience headers like x-wallet-address
+- **SNS SSRF prevention** — SubscriptionConfirmation handler validates SubscribeURL is `https://*.amazonaws.com`
+- **Email header injection prevention** — forward handler sanitizes sender display name (strips CRLF/quotes)
 - **TOS/Privacy Policy** — prohibits spam, CAN-SPAM/GDPR compliance required, states we can suspend wallets/subdomains
 
 ### NOT implemented — must build
@@ -584,6 +587,10 @@ EMAIL_DOMAIN=x402email.com
 2. **Per-wallet rate limiting** — cap shared domain sends per wallet per hour.
 3. **Suspension mechanism** — `suspended` column + blocklist check in send handlers.
 4. **Content scanning** — basic keyword/pattern + attachment type filtering.
+
+### Known security risks — not yet addressed
+- **SNS message signature verification** — forward handler only checks TopicArn, does not verify the cryptographic signature on SNS messages. An attacker who knows the TopicArn could forge SNS notifications to trigger email forwarding or InboxMessage creation. Fix: add `aws-sns-message-validator` package or equivalent.
+- **`OPERATIONAL_WALLET_PRIVATE_KEY` not `.trim()`'d** — in `lib/x402/refund.ts`, the private key env var is used without trimming. A trailing newline from Vercel env could derive a different account or break refunds. Fix: `.trim()` in `getRefundClient()`.
 
 ### Subdomain MAIL FROM — not needed
 Custom MAIL FROM (`m.x402email.com`) is set up for the shared domain only. Subdomains don't need their own custom MAIL FROM because DMARC only requires ONE of SPF or DKIM to align, and each subdomain has its own DKIM keys which align with the From header. Adding per-subdomain MAIL FROM would add complexity to provisioning for marginal benefit.

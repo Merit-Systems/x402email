@@ -14,6 +14,8 @@ export async function GET() {
       `${BASE_URL}/api/inbox/topup/quarter`,
       `${BASE_URL}/api/inbox/topup/year`,
       `${BASE_URL}/api/inbox/send`,
+      `${BASE_URL}/api/inbox/messages`,
+      `${BASE_URL}/api/inbox/messages/read`,
     ],
   });
 }

@@ -1,5 +1,5 @@
 /**
- * POST /api/inbox/update — Update inbox forwarding address.
+ * POST /api/inbox/update — Update inbox settings (forwarding address, message retention).
  * Protection: SIWX only (NOT an x402 route — no payment).
  * Only the inbox owner can update.
  */
@@ -32,7 +32,7 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  const { username, forwardTo } = parsed.data;
+  const { username, forwardTo, retainMessages } = parsed.data;
 
   // Verify SIWX
   const resourceUri = `${process.env.NEXT_PUBLIC_BASE_URL}/api/inbox/update`;
@@ -59,14 +59,19 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  await prisma.inbox.update({
+  const updateData: { forwardTo?: string; retainMessages?: boolean } = {};
+  if (forwardTo !== undefined) updateData.forwardTo = forwardTo;
+  if (retainMessages !== undefined) updateData.retainMessages = retainMessages;
+
+  const updated = await prisma.inbox.update({
     where: { username },
-    data: { forwardTo },
+    data: updateData,
   });
 
   return NextResponse.json({
     success: true,
     inbox: `${username}@${DOMAIN}`,
-    forwardTo,
+    forwardTo: updated.forwardTo,
+    retainMessages: updated.retainMessages,
   });
 }

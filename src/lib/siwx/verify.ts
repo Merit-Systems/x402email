@@ -15,8 +15,10 @@ import {
 } from '@x402/extensions/sign-in-with-x';
 import { encodePaymentRequiredHeader } from '@x402/core/http';
 import { NextResponse } from 'next/server';
+import { DatabaseSIWxStorage } from './storage';
 
 const NETWORK = 'eip155:8453' as const;
+const siwxStorage = new DatabaseSIWxStorage();
 
 export interface SIWxVerification {
   address: string;
@@ -123,6 +125,18 @@ export async function verifySIWxFromRequest(
       { success: false, error: 'SIWX signature verification failed' },
       { status: 401 },
     );
+  }
+
+  // Prevent nonce replay — reject if this nonce was already used
+  const nonce = payload.nonce;
+  if (nonce) {
+    if (await siwxStorage.hasUsedNonce(nonce)) {
+      return NextResponse.json(
+        { success: false, error: 'SIWX nonce already used' },
+        { status: 401 },
+      );
+    }
+    await siwxStorage.recordNonce(nonce);
   }
 
   return { address: verification.address! };
