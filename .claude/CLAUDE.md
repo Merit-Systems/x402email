@@ -13,6 +13,8 @@ An x402-protected email sending API. Three tiers:
 2. **Forwarding inbox** — buy `username@x402email.com` for $1/month, emails forwarded to your real address, send from your inbox for $0.005/email
 3. **Custom subdomain** — buy `alice.x402email.com` for $5 via x402, send from `anything@alice.x402email.com` for $0.005/email, wallet identity extracted from x402 payment. Up to 50 authorized signer wallets per subdomain.
 
+Subdomain owners can also buy the matching inbox name (e.g., owner of `alice.x402email.com` can buy `alice@x402email.com`). The same wallet must own both.
+
 ## Tech Stack
 
 - **Framework**: Next.js 15 (App Router)
