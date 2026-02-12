@@ -119,7 +119,7 @@ const coreHandler = async (request: NextRequest): Promise<NextResponse> => {
 };
 
 const routeConfig = {
-  description: `Buy a forwarding inbox on ${DOMAIN} ($1 via x402, 30 days)`,
+  description: `Buy a forwarding inbox on ${DOMAIN} ($1 via x402, 30 days). Subdomain owners can buy the matching inbox name with the same wallet.`,
   extensions,
   accepts: [PRICES.inboxBuy],
 };
