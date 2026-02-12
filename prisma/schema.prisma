@@ -33,7 +33,7 @@ model Signer {
 model Inbox {
   id              String         @id @default(cuid())
   username        String         @unique
-  forwardTo       String
+  forwardTo       String?
   ownerWallet     String
   expiresAt       DateTime
   active          Boolean        @default(true)

@@ -1,7 +1,10 @@
 /**
- * POST /api/inbox/buy — Purchase a forwarding inbox.
+ * POST /api/inbox/buy — Purchase an inbox.
  * Protection: x402 payment ($1).
  * The buyer's wallet is extracted from the x402 payment header.
+ *
+ * forwardTo is optional — if omitted, retainMessages is enabled automatically
+ * so the inbox works as a programmatic mailbox via the messages API.
  */
 import { NextRequest, NextResponse } from 'next/server';
 import { withX402 } from '@x402/next';
@@ -30,15 +33,16 @@ const extensions = {
           success: { type: 'boolean', const: true },
           inbox: { type: 'string' },
           forwardTo: { type: 'string' },
+          retainMessages: { type: 'boolean' },
           expiresAt: { type: 'string' },
           daysRemaining: { type: 'number' },
         },
-        required: ['success', 'inbox', 'forwardTo', 'expiresAt', 'daysRemaining'],
+        required: ['success', 'inbox', 'retainMessages', 'expiresAt', 'daysRemaining'],
       },
       example: {
         success: true,
         inbox: 'alice@x402email.com',
-        forwardTo: 'alice@gmail.com',
+        retainMessages: true,
         expiresAt: '2025-07-15T12:00:00.000Z',
         daysRemaining: 30,
       },
@@ -100,26 +104,32 @@ const coreHandler = async (request: NextRequest): Promise<NextResponse> => {
 
   const expiresAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
 
+  // If no forwardTo, auto-enable retainMessages so the inbox works
+  // as a programmatic mailbox via the messages API.
+  const retainMessages = !forwardTo;
+
   await prisma.inbox.create({
     data: {
       username,
-      forwardTo,
+      forwardTo: forwardTo ?? null,
       ownerWallet,
       expiresAt,
+      retainMessages,
     },
   });
 
   return NextResponse.json({
     success: true,
     inbox: `${username}@${DOMAIN}`,
-    forwardTo,
+    ...(forwardTo ? { forwardTo } : {}),
+    retainMessages,
     expiresAt: expiresAt.toISOString(),
     daysRemaining: 30,
   });
 };
 
 const routeConfig = {
-  description: `Buy a forwarding inbox on ${DOMAIN} ($1 via x402, 30 days). Subdomain owners can buy the matching inbox name with the same wallet.`,
+  description: `Buy an inbox on ${DOMAIN} ($1 via x402, 30 days). forwardTo is optional — omit it to use as a programmatic mailbox via the messages API (retainMessages enabled automatically). Subdomain owners can buy the matching inbox name with the same wallet.`,
   extensions,
   accepts: [PRICES.inboxBuy],
 };

@@ -14,7 +14,7 @@ export const InboxUsernameSchema = z
 
 export const BuyInboxRequestSchema = z.object({
   username: InboxUsernameSchema,
-  forwardTo: z.string().email(),
+  forwardTo: z.string().email().optional(),
 });
 
 export const TopupInboxRequestSchema = z.object({
@@ -38,7 +38,7 @@ export const InboxSendRequestSchema = z.object({
 
 export const UpdateInboxRequestSchema = z.object({
   username: InboxUsernameSchema,
-  forwardTo: z.string().email().optional(),
+  forwardTo: z.string().email().nullable().optional(),
   retainMessages: z.boolean().optional(),
 }).refine(
   (data) => data.forwardTo !== undefined || data.retainMessages !== undefined,
