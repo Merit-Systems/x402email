@@ -1,16 +1,15 @@
 import { NextRequest } from 'next/server';
 
 /**
- * Extract the payer wallet address from x402 request headers.
- * The x-wallet-address header is set by x402 clients after payment.
- * Falls back to decoding the payment-signature header.
+ * Extract the payer wallet address from the cryptographically-signed
+ * payment-signature header. This header is verified by the x402 facilitator
+ * before settlement — withX402 ensures only verified payments reach handlers.
+ *
+ * SECURITY: Do NOT trust client-set headers like x-wallet-address or x-client-id.
+ * Those are unverified and can be spoofed by a malicious caller to impersonate
+ * another wallet's identity while paying from their own.
  */
 export function extractPayerWallet(request: NextRequest): string | null {
-  // x402 clients set this header directly
-  const walletHeader = request.headers.get('x-wallet-address') || request.headers.get('x-client-id');
-  if (walletHeader) return walletHeader.toLowerCase();
-
-  // Fallback: decode from payment-signature header
   const paymentHeader = request.headers.get('payment-signature') || request.headers.get('x-payment');
   if (!paymentHeader) return null;
   try {
