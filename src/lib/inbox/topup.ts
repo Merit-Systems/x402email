@@ -48,6 +48,13 @@ export function createTopupHandler(daysToAdd: number) {
       RETURNING "expiresAt" AS expires_at
     `;
 
+    if (rows.length === 0) {
+      return NextResponse.json(
+        { success: false, error: 'Inbox not found' },
+        { status: 404 },
+      );
+    }
+
     const newExpiry = rows[0].expires_at;
     const daysRemaining = Math.ceil((newExpiry.getTime() - Date.now()) / (24 * 60 * 60 * 1000));
 
