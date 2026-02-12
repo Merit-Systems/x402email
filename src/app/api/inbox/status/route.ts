@@ -51,6 +51,7 @@ export async function GET(request: NextRequest) {
     inbox: `${username}@${DOMAIN}`,
     ownerWallet: inbox.ownerWallet,
     forwardTo: inbox.forwardTo,
+    retainMessages: inbox.retainMessages,
     expiresAt: inbox.expiresAt.toISOString(),
     daysRemaining,
     daysOwned,

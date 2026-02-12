@@ -106,6 +106,28 @@ function rewriteHeaders(
   return newLines.join(lineEnding);
 }
 
+/**
+ * Extract the Subject header from raw email bytes without full parsing.
+ */
+function extractSubjectFromRaw(raw: Buffer): string {
+  const text = raw.toString('utf-8');
+  // Find Subject header (case-insensitive)
+  const match = text.match(/^Subject:\s*(.+)/im);
+  if (!match) return '(no subject)';
+  // Handle folded headers: collect continuation lines
+  let subject = match[1].trim();
+  const afterMatch = text.slice(text.indexOf(match[0]) + match[0].length);
+  const lines = afterMatch.split(/\r?\n/);
+  for (const line of lines) {
+    if (/^\s/.test(line)) {
+      subject += ' ' + line.trim();
+    } else {
+      break;
+    }
+  }
+  return subject.slice(0, 998); // RFC 2822 max
+}
+
 export async function POST(request: NextRequest) {
   let body: Record<string, unknown>;
   try {
@@ -186,8 +208,12 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ status: 'ok' });
   }
 
+  // Extract subject from raw email headers for InboxMessage records
+  const subjectLine = extractSubjectFromRaw(rawEmail);
+
   // Process each recipient
   let forwarded = 0;
+  let retainedAny = false;
   for (const recipient of recipients) {
     const username = recipient.split('@')[0]?.toLowerCase();
     if (!username) continue;
@@ -213,10 +239,28 @@ export async function POST(request: NextRequest) {
     } catch (error) {
       console.error(`[x402email] Forward error for ${recipient}:`, error);
     }
+
+    // Retain message in S3 if inbox has retention enabled
+    if (inbox.retainMessages) {
+      try {
+        await prisma.inboxMessage.create({
+          data: {
+            inboxId: inbox.id,
+            s3Key: objectKey,
+            fromEmail: originalFrom,
+            subject: subjectLine,
+          },
+        });
+        retainedAny = true;
+        console.log(`[x402email] Retained message for ${recipient}`);
+      } catch (error) {
+        console.error(`[x402email] Retain error for ${recipient}:`, error);
+      }
+    }
   }
 
-  // Clean up S3 object after processing
-  if (forwarded > 0) {
+  // Clean up S3 object after processing — only if no inbox is retaining it
+  if (forwarded > 0 && !retainedAny) {
     try {
       await deleteRawEmail(objectKey);
     } catch {

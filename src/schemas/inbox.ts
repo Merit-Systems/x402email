@@ -38,12 +38,30 @@ export const InboxSendRequestSchema = z.object({
 
 export const UpdateInboxRequestSchema = z.object({
   username: InboxUsernameSchema,
-  forwardTo: z.string().email(),
-});
+  forwardTo: z.string().email().optional(),
+  retainMessages: z.boolean().optional(),
+}).refine(
+  (data) => data.forwardTo !== undefined || data.retainMessages !== undefined,
+  { message: 'At least one of forwardTo or retainMessages is required' },
+);
 
 export const CancelInboxRequestSchema = z.object({
   username: InboxUsernameSchema,
   refundAddress: z.string().regex(/^0x[a-fA-F0-9]{40}$/, 'Invalid EVM wallet address').optional(),
+});
+
+export const ListMessagesRequestSchema = z.object({
+  username: InboxUsernameSchema,
+  cursor: z.string().optional(),
+  limit: z.number().int().min(1).max(100).optional().default(20),
+});
+
+export const ReadMessageRequestSchema = z.object({
+  messageId: z.string().min(1),
+});
+
+export const DeleteMessageRequestSchema = z.object({
+  messageId: z.string().min(1),
 });
 
 export type BuyInboxRequest = z.infer<typeof BuyInboxRequestSchema>;
@@ -51,3 +69,6 @@ export type TopupInboxRequest = z.infer<typeof TopupInboxRequestSchema>;
 export type InboxSendRequest = z.infer<typeof InboxSendRequestSchema>;
 export type UpdateInboxRequest = z.infer<typeof UpdateInboxRequestSchema>;
 export type CancelInboxRequest = z.infer<typeof CancelInboxRequestSchema>;
+export type ListMessagesRequest = z.infer<typeof ListMessagesRequestSchema>;
+export type ReadMessageRequest = z.infer<typeof ReadMessageRequestSchema>;
+export type DeleteMessageRequest = z.infer<typeof DeleteMessageRequestSchema>;

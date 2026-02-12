@@ -31,17 +31,32 @@ model Signer {
 }
 
 model Inbox {
-  id             String    @id @default(cuid())
-  username       String    @unique
-  forwardTo      String
-  ownerWallet    String
-  expiresAt      DateTime
-  active         Boolean   @default(true)
-  lastReminderAt DateTime?
-  createdAt      DateTime  @default(now())
-  sendLogs       SendLog[]
+  id              String         @id @default(cuid())
+  username        String         @unique
+  forwardTo       String
+  ownerWallet     String
+  expiresAt       DateTime
+  active          Boolean        @default(true)
+  retainMessages  Boolean        @default(false)
+  lastReminderAt  DateTime?
+  createdAt       DateTime       @default(now())
+  sendLogs        SendLog[]
+  messages        InboxMessage[]
 
   @@index([ownerWallet])
+}
+
+model InboxMessage {
+  id         String   @id @default(cuid())
+  inbox      Inbox    @relation(fields: [inboxId], references: [id])
+  inboxId    String
+  s3Key      String
+  fromEmail  String
+  subject    String
+  receivedAt DateTime @default(now())
+  read       Boolean  @default(false)
+
+  @@index([inboxId, receivedAt])
 }
 
 model SendLog {

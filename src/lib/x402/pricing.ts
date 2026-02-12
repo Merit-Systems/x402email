@@ -52,6 +52,12 @@ export const PRICES = {
     price: '0.005',
     payTo: PAYEE,
   },
+  inboxMessages: {
+    scheme: 'exact' as const,
+    network: NETWORK,
+    price: '0.001',
+    payTo: PAYEE,
+  },
 } as const;
 
 export const INBOX_DURATIONS = { topup: 30, quarter: 90, year: 365 } as const;
