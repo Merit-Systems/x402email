@@ -96,15 +96,15 @@ const coreHandler = async (request: NextRequest): Promise<NextResponse> => {
   const messages = await prisma.inboxMessage.findMany({
     where: {
       inboxId: inbox.id,
-      ...(cursor ? { receivedAt: { lt: new Date(cursor) } } : {}),
     },
     orderBy: { receivedAt: 'desc' },
-    take: limit + 1, // fetch one extra to determine if there's a next page
+    take: limit + 1,
+    ...(cursor ? { cursor: { id: cursor }, skip: 1 } : {}),
   });
 
   const hasMore = messages.length > limit;
   const page = hasMore ? messages.slice(0, limit) : messages;
-  const nextCursor = hasMore ? page[page.length - 1].receivedAt.toISOString() : undefined;
+  const nextCursor = hasMore ? page[page.length - 1].id : undefined;
 
   return NextResponse.json({
     success: true,

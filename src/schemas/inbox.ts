@@ -52,7 +52,7 @@ export const CancelInboxRequestSchema = z.object({
 
 export const ListMessagesRequestSchema = z.object({
   username: InboxUsernameSchema,
-  cursor: z.string().optional(),
+  cursor: z.string().min(1).optional(),
   limit: z.number().int().min(1).max(100).optional().default(20),
 });
 
