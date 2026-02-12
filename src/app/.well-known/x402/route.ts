@@ -9,7 +9,7 @@ Email via x402 micropayments. USDC on Base. No API keys.
 
 ## Three tiers
 
-1. **Shared domain** — POST /api/send ($0.02). Sends from relay@${DOMAIN}. Body: {to, subject, html?, text?, replyTo?, attachments?}. Requires html or text.
+1. **Shared domain** — POST /api/send ($0.02). Sends from relay@${DOMAIN}. Body: {to: ["email"], subject, html?, text?, replyTo?, attachments?}. "to" is always an array, even for a single recipient. Requires html or text.
 2. **Inbox** — Buy username@${DOMAIN} for $1/30 days. Forward to real address, use as programmatic mailbox, or both. Send from it for $0.005.
 3. **Subdomain** — Buy yourname.${DOMAIN} for $5. Send from anything@yourname.${DOMAIN} for $0.005. Up to 50 authorized signer wallets.
 
