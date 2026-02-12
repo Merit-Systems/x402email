@@ -91,9 +91,9 @@ const coreHandler = async (request: NextRequest): Promise<NextResponse> => {
     );
   }
 
-  if (existingSubdomain) {
+  if (existingSubdomain && existingSubdomain.ownerWallet.toLowerCase() !== ownerWallet) {
     return NextResponse.json(
-      { success: false, error: 'Username already taken as a subdomain' },
+      { success: false, error: 'Username already taken as a subdomain by a different wallet' },
       { status: 409 },
     );
   }
