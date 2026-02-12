@@ -120,7 +120,16 @@ const coreHandler = async (request: NextRequest): Promise<NextResponse> => {
     );
   }
 
-  const email = await parseRawEmail(rawEmail);
+  let email;
+  try {
+    email = await parseRawEmail(rawEmail);
+  } catch (error) {
+    console.error('[x402email] Failed to parse email:', error);
+    return NextResponse.json(
+      { success: false, error: 'Failed to parse email content' },
+      { status: 500 },
+    );
+  }
 
   // Mark as read
   if (!message.read) {

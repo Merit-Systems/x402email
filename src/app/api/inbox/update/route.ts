@@ -1,5 +1,5 @@
 /**
- * POST /api/inbox/update — Update inbox forwarding address.
+ * POST /api/inbox/update — Update inbox settings (forwarding address, message retention).
  * Protection: SIWX only (NOT an x402 route — no payment).
  * Only the inbox owner can update.
  */

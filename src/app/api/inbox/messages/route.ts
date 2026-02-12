@@ -93,13 +93,6 @@ const coreHandler = async (request: NextRequest): Promise<NextResponse> => {
     );
   }
 
-  if (!inbox.retainMessages) {
-    return NextResponse.json(
-      { success: false, error: 'Message retention is not enabled for this inbox. Enable it via POST /api/inbox/update with { "retainMessages": true }' },
-      { status: 400 },
-    );
-  }
-
   const messages = await prisma.inboxMessage.findMany({
     where: {
       inboxId: inbox.id,
