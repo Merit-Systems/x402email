@@ -54,8 +54,11 @@ function rewriteHeaders(
 
   // Extract display name from original From if present
   const fromMatch = opts.originalFrom.match(/^"?([^"<]*)"?\s*<(.+)>$/);
-  const senderName = fromMatch ? fromMatch[1].trim() : opts.originalFrom.split('@')[0];
-  const senderEmail = fromMatch ? fromMatch[2] : opts.originalFrom;
+  const rawSenderName = fromMatch ? fromMatch[1].trim() : opts.originalFrom.split('@')[0];
+  const rawSenderEmail = fromMatch ? fromMatch[2] : opts.originalFrom;
+  // Sanitize to prevent header injection via CRLF in display name
+  const senderName = rawSenderName.replace(/[\r\n"]/g, '');
+  const senderEmail = rawSenderEmail.replace(/[\r\n]/g, '');
 
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i];
@@ -146,6 +149,20 @@ export async function POST(request: NextRequest) {
     if (EXPECTED_TOPIC_ARN && body.TopicArn !== EXPECTED_TOPIC_ARN) {
       console.error('[x402email] SNS topic mismatch:', body.TopicArn);
       return NextResponse.json({ status: 'error' }, { status: 403 });
+    }
+
+    // Validate SubscribeURL is an actual AWS SNS endpoint to prevent SSRF
+    try {
+      const parsed = new URL(subscribeUrl);
+      if (
+        parsed.protocol !== 'https:' ||
+        !parsed.hostname.endsWith('.amazonaws.com')
+      ) {
+        console.error('[x402email] Suspicious SubscribeURL:', subscribeUrl);
+        return NextResponse.json({ status: 'error', message: 'Invalid SubscribeURL' }, { status: 400 });
+      }
+    } catch {
+      return NextResponse.json({ status: 'error', message: 'Invalid SubscribeURL' }, { status: 400 });
     }
 
     try {
