@@ -40,6 +40,8 @@ Subdomain owners can also buy the matching inbox name (e.g., owner of `alice.x40
 | Top up inbox 30 days | $1 | `'1'` |
 | Top up inbox 90 days | $2.50 | `'2.5'` |
 | Top up inbox 365 days | $8 | `'8'` |
+| Create subdomain inbox | $0.25 | `'0.25'` |
+| Read inbox/subdomain messages | $0.001 | `'0.001'` |
 | Manage signers / status / update / cancel | Free | N/A (SIWX only) |
 
 ## Architecture
@@ -130,7 +132,7 @@ const extensions = {
 const routeConfig = {
   description: 'Send email from your subdomain',
   extensions,
-  accepts: [{ scheme: 'exact', network: 'eip155:8453', price: '0.001', payTo: PAYEE }],
+  accepts: [{ scheme: 'exact', network: 'eip155:8453', price: '0.005', payTo: PAYEE }],
 };
 
 export const POST = withX402(handler, routeConfig, server);
@@ -172,9 +174,9 @@ We implement this backed by Prisma + Neon Postgres — NOT the in-memory default
 
 The x402 SIWX model is "pay once, prove identity on return." For x402email:
 
-1. **Subdomain purchase** (`/api/subdomain/buy`): Normal x402 payment ($50). The `onAfterSettle` hook records `resource=/api/subdomain/* → wallet=0x...` in storage.
+1. **Subdomain purchase** (`/api/subdomain/buy`): Normal x402 payment ($5). The `onAfterSettle` hook records `resource=/api/subdomain/* → wallet=0x...` in storage.
 
-2. **Subdomain send** (`/api/subdomain/send`): x402 payment ($0.001) + SIWX extension. First-time callers pay. Return callers with SIWX proof skip... wait, no — they should ALWAYS pay per send. SIWX here proves wallet identity for authorization (proving they own the subdomain), NOT to skip payment.
+2. **Subdomain send** (`/api/subdomain/send`): x402 payment ($0.005) + SIWX extension. First-time callers pay. Return callers with SIWX proof skip... wait, no — they should ALWAYS pay per send. SIWX here proves wallet identity for authorization (proving they own the subdomain), NOT to skip payment.
 
 **Key design decision**: We need SIWX for **authorization** (who are you?) separate from **payment** (pay per send). The standard SIWX flow uses "already paid" to grant access. For subdomain sends, we want:
 - SIWX proves wallet identity → we check against subdomain ownership
@@ -200,7 +202,7 @@ For signer management (free, no payment):
 ## API Endpoints
 
 ### POST /api/send — Shared domain send
-**Protection**: x402 payment ($0.001), no SIWX
+**Protection**: x402 payment ($0.02), no SIWX
 **From**: `noreply@x402email.com`
 
 ```json
@@ -223,7 +225,7 @@ Response:
 ```
 
 ### POST /api/subdomain/buy — Purchase subdomain
-**Protection**: x402 payment ($50) + SIWX extension (records buyer wallet for future auth)
+**Protection**: x402 payment ($5) + SIWX extension (records buyer wallet for future auth)
 
 ```json
 {
@@ -236,7 +238,7 @@ The buyer's wallet address is extracted from the x402 payment (payer) or SIWX pr
 Flow:
 1. Validate subdomain name (alphanumeric + hyphens, 3-30 chars, not reserved)
 2. Check availability in DB
-3. x402 payment settles ($50)
+3. x402 payment settles ($5)
 4. `onAfterSettle` records wallet → subdomain ownership in SIWxStorage
 5. Call AWS SES `VerifyDomainIdentity` + `VerifyDomainDkim` for `alice.x402email.com`
 6. Call Route53 API to add DNS records (TXT verification, 3 DKIM CNAMEs, SPF, DMARC)
@@ -254,7 +256,7 @@ Response:
 ```
 
 ### POST /api/subdomain/send — Subdomain send
-**Protection**: x402 payment ($0.001) + SIWX proof (authorization check in handler)
+**Protection**: x402 payment ($0.005) + SIWX proof (authorization check in handler)
 
 ```json
 {
@@ -268,7 +270,7 @@ Response:
 ```
 
 Flow:
-1. x402 payment settles ($0.001)
+1. x402 payment settles ($0.005)
 2. Handler parses `SIGN-IN-WITH-X` header → recovers wallet address
 3. Handler extracts subdomain from `from` address
 4. Handler checks wallet is owner or authorized signer in DB
@@ -326,68 +328,16 @@ Returns all x402-protected endpoints with pricing and Bazaar schemas.
 
 ## Database Schema (Prisma + Neon Postgres)
 
-```prisma
-// prisma/schema.prisma
+See `prisma/schema.prisma` for the full schema. Key models:
 
-datasource db {
-  provider = "postgresql"
-  url      = env("DATABASE_URL")
-}
-
-generator client {
-  provider = "prisma-client-js"
-}
-
-model Subdomain {
-  id          String   @id @default(cuid())
-  name        String   @unique  // 'alice' (without .x402email.com)
-  ownerWallet String
-  dnsVerified Boolean  @default(false)
-  sesVerified Boolean  @default(false)
-  paymentTx   String?
-  createdAt   DateTime @default(now())
-  signers     Signer[]
-  sendLogs    SendLog[]
-}
-
-model Signer {
-  id            String    @id @default(cuid())
-  subdomain     Subdomain @relation(fields: [subdomainId], references: [id])
-  subdomainId   String
-  walletAddress String
-  addedAt       DateTime  @default(now())
-
-  @@unique([subdomainId, walletAddress])
-}
-
-model SendLog {
-  id            String     @id @default(cuid())
-  subdomain     Subdomain? @relation(fields: [subdomainId], references: [id])
-  subdomainId   String?    // null = shared domain
-  senderWallet  String?
-  fromEmail     String
-  toEmails      String[]   // Postgres native array
-  subject       String
-  sesMessageId  String?
-  createdAt     DateTime   @default(now())
-}
-
-// SIWxStorage backing — tracks which wallets paid for which resources
-model SiwxPayment {
-  id            String   @id @default(cuid())
-  resource      String
-  walletAddress String
-  createdAt     DateTime @default(now())
-
-  @@unique([resource, walletAddress])
-}
-
-// Nonce tracking for SIWX replay prevention
-model SiwxNonce {
-  nonce  String   @id
-  usedAt DateTime @default(now())
-}
-```
+- **Subdomain** — purchased subdomains with owner wallet, DNS/SES verification status, optional `catchAllForwardTo`
+- **SubdomainInbox** — per-address inboxes on subdomains (e.g., `biden@craig.x402email.com`), optional `forwardTo` + `retainMessages`, 500 message cap
+- **SubdomainMessage** — retained inbound messages for subdomain inboxes, stored in S3
+- **Inbox** — root domain inboxes (`username@x402email.com`), time-limited with `expiresAt`
+- **InboxMessage** — retained inbound messages for root inboxes
+- **Signer** — authorized signer wallets per subdomain (max 50)
+- **SendLog** — all outbound sends, used for rate limiting and auditing
+- **SiwxPayment** / **SiwxNonce** — SIWX authentication backing tables
 
 ## SIWxStorage Implementation (Prisma-backed)
 
@@ -435,8 +385,8 @@ When a subdomain is purchased:
    ├── CNAME <tok1>._domainkey.alice.x402email.com → <tok1>.dkim.amazonses.com
    ├── CNAME <tok2>._domainkey.alice.x402email.com → <tok2>.dkim.amazonses.com
    ├── CNAME <tok3>._domainkey.alice.x402email.com → <tok3>.dkim.amazonses.com
-   ├── TXT  alice.x402email.com               → v=spf1 include:amazonses.com ~all
-   └── TXT  _dmarc.alice.x402email.com        → v=DMARC1; p=quarantine; rua=mailto:dmarc@x402email.com
+   ├── TXT  alice.x402email.com               → v=spf1 include:amazonses.com -all
+   └── TXT  _dmarc.alice.x402email.com        → v=DMARC1; p=reject; rua=mailto:dmarc@x402email.com
 
 3. Poll SES verification (usually 1-5 minutes)
    └── GetIdentityVerificationAttributes('alice.x402email.com')
@@ -455,6 +405,8 @@ x402email/
 ├── next.config.ts
 ├── tailwind.config.ts
 ├── tsconfig.json
+├── docs/
+│   └── deliverability.md        # Email deliverability setup & rationale
 ├── src/
 │   ├── app/
 │   │   ├── layout.tsx
@@ -462,28 +414,49 @@ x402email/
 │   │   ├── api/
 │   │   │   ├── send/
 │   │   │   │   └── route.ts     # Shared domain send (x402 only)
+│   │   │   ├── inbox/
+│   │   │   │   ├── buy/route.ts         # Buy root inbox (x402)
+│   │   │   │   ├── send/route.ts        # Send from inbox (x402)
+│   │   │   │   ├── forward/route.ts     # SNS webhook for inbound email routing
+│   │   │   │   ├── status/route.ts      # Inbox status (SIWX)
+│   │   │   │   ├── update/route.ts      # Update inbox (SIWX)
+│   │   │   │   ├── cancel/route.ts      # Cancel inbox (SIWX)
+│   │   │   │   ├── topup/route.ts       # Topup 30d (x402)
+│   │   │   │   ├── topup-quarter/route.ts
+│   │   │   │   ├── topup-year/route.ts
+│   │   │   │   └── messages/
+│   │   │   │       ├── route.ts         # List messages (x402)
+│   │   │   │       ├── read/route.ts    # Read message (x402)
+│   │   │   │       └── delete/route.ts  # Delete message (SIWX)
 │   │   │   └── subdomain/
-│   │   │       ├── buy/
-│   │   │       │   └── route.ts # Buy subdomain (x402 + SIWX)
-│   │   │       ├── send/
-│   │   │       │   └── route.ts # Subdomain send (x402 + SIWX auth in handler)
-│   │   │       ├── signers/
-│   │   │       │   └── route.ts # Manage signers (SIWX only, no x402)
-│   │   │       └── status/
-│   │   │           └── route.ts # Check status (SIWX only, no x402)
+│   │   │       ├── buy/route.ts         # Buy subdomain (x402 + SIWX)
+│   │   │       ├── send/route.ts        # Subdomain send (x402 + SIWX)
+│   │   │       ├── signers/route.ts     # Manage signers (SIWX)
+│   │   │       ├── status/route.ts      # Subdomain status (SIWX)
+│   │   │       ├── update/route.ts      # Update subdomain settings (SIWX)
+│   │   │       └── inbox/
+│   │   │           ├── create/route.ts  # Create subdomain inbox (x402 $0.25)
+│   │   │           ├── list/route.ts    # List subdomain inboxes (SIWX)
+│   │   │           ├── delete/route.ts  # Delete subdomain inbox (SIWX)
+│   │   │           ├── update/route.ts  # Update subdomain inbox (SIWX)
+│   │   │           └── messages/
+│   │   │               ├── route.ts         # List messages (x402)
+│   │   │               ├── read/route.ts    # Read message (x402)
+│   │   │               └── delete/route.ts  # Delete message (SIWX)
 │   │   └── .well-known/
 │   │       └── x402/
 │   │           └── route.ts     # x402 discovery
 │   ├── lib/
 │   │   ├── x402/
 │   │   │   ├── server.ts        # x402ResourceServer singleton + SIWX hooks
-│   │   │   ├── pricing.ts       # Route pricing config
-│   │   │   └── route-wrapper.ts # createX402PostRoute helper (reuse from samragsdale.com-v2)
+│   │   │   ├── pricing.ts       # Route pricing config + limits
+│   │   │   └── route-wrapper.ts # createX402PostRoute helper
 │   │   ├── siwx/
 │   │   │   ├── storage.ts       # DatabaseSIWxStorage (Prisma-backed SIWxStorage impl)
 │   │   │   └── verify.ts        # Manual SIWX header verification for non-x402 routes
 │   │   ├── email/
 │   │   │   ├── ses.ts           # AWS SES client (SESv2 SDK)
+│   │   │   ├── s3.ts            # S3 email storage (get/delete raw email)
 │   │   │   └── schemas.ts       # Email Zod schemas
 │   │   ├── dns/
 │   │   │   ├── route53.ts       # AWS Route53 DNS client (scoped IAM)
@@ -493,7 +466,8 @@ x402email/
 │   │       └── client.ts        # Prisma client singleton
 │   └── schemas/
 │       ├── send.ts              # Send email request/response Zod schemas
-│       ├── subdomain.ts         # Subdomain buy/status Zod schemas
+│       ├── subdomain.ts         # Subdomain + subdomain inbox Zod schemas
+│       ├── inbox.ts             # Root inbox Zod schemas
 │       └── signers.ts           # Signer management Zod schemas
 ├── prisma/
 │   └── schema.prisma           # Prisma schema (see DB Schema section above)
@@ -567,14 +541,16 @@ EMAIL_DOMAIN=x402email.com
 **AWS can suspend our entire SES account if bounce rate exceeds 5% or complaint rate exceeds 0.1%.** This kills the service for ALL users — shared domain and every subdomain. The AWS AUP prohibits facilitating unsolicited bulk email, and as an open relay protected only by micropayments, we are high-risk in AWS's eyes. Services like Resend/SendGrid survive by combining TOS (shifts CAN-SPAM liability to user), active abuse detection (content scanning, pattern analysis, auto-suspension), and account gating (manual review, restricted onboarding). We have TOS but lack the enforcement code.
 
 ### Implemented today
-- **$50 subdomain price** — economic spam deterrent for subdomain tier
-- **$0.001 per-send cost** — marginal deterrent (100K spam = $100, cheap but nonzero)
+- **$5 subdomain price** — economic spam deterrent for subdomain tier
+- **Per-send cost** — $0.02 shared domain, $0.005 subdomain/inbox (100K spam = $500-$2000)
 - **Schema validation** — 50 recipient cap, 256KB body limit, subdomain name rules
 - **Send logging** — all sends logged to DB with wallet address (for future analysis)
 - **SIWX nonce replay prevention** — nonces recorded in SiwxNonce table, prevents signature reuse
 - **Wallet identity from payment-signature only** — `extractPayerWallet` only trusts the cryptographically-signed payment header, not client-set convenience headers like x-wallet-address
-- **SNS SSRF prevention** — SubscriptionConfirmation handler validates SubscribeURL is `https://*.amazonaws.com`
+- **SNS signature verification** — `sns-validator` package cryptographically verifies all inbound SNS messages before processing, preventing forged notifications
 - **Email header injection prevention** — forward handler sanitizes sender display name (strips CRLF/quotes)
+- **Forward rate limiting** — 200 forwards/hr per subdomain, prevents catch-all relay abuse
+- **Atomic message caps** — subdomain inbox message retention uses Prisma `$transaction` to prevent TOCTOU race conditions
 - **TOS/Privacy Policy** — prohibits spam, CAN-SPAM/GDPR compliance required, states we can suspend wallets/subdomains
 
 ### NOT implemented — must build
@@ -591,7 +567,6 @@ EMAIL_DOMAIN=x402email.com
 4. **Content scanning** — basic keyword/pattern + attachment type filtering.
 
 ### Known security risks — not yet addressed
-- **SNS message signature verification** — forward handler only checks TopicArn, does not verify the cryptographic signature on SNS messages. An attacker who knows the TopicArn could forge SNS notifications to trigger email forwarding or InboxMessage creation. Fix: add `aws-sns-message-validator` package or equivalent.
 - **`OPERATIONAL_WALLET_PRIVATE_KEY` not `.trim()`'d** — in `lib/x402/refund.ts`, the private key env var is used without trimming. A trailing newline from Vercel env could derive a different account or break refunds. Fix: `.trim()` in `getRefundClient()`.
 
 ### Subdomain MAIL FROM — not needed
