@@ -131,7 +131,7 @@ const coreHandler = async (request: NextRequest): Promise<NextResponse> => {
 };
 
 const routeConfig = {
-  description: 'Create an inbox on your subdomain ($0.25 via x402). Max 100 inboxes, 500 messages each.',
+  description: `Create an inbox on your subdomain ($0.25 via x402). Max ${SUBDOMAIN_INBOX_LIMITS.maxInboxesPerSubdomain} inboxes, ${SUBDOMAIN_INBOX_LIMITS.maxMessagesPerInbox} messages each.`,
   extensions,
   accepts: [PRICES.subdomainInboxCreate],
 };

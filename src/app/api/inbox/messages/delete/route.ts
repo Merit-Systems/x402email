@@ -58,19 +58,22 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  // Check if other InboxMessage records share the same s3Key (multi-recipient edge case)
+  // Check if other messages (root or subdomain) share the same s3Key
   const otherRefs = await prisma.inboxMessage.count({
     where: {
       s3Key: message.s3Key,
       id: { not: messageId },
     },
   });
+  const otherSubRefs = await prisma.subdomainMessage.count({
+    where: { s3Key: message.s3Key },
+  });
 
   // Delete the DB record
   await prisma.inboxMessage.delete({ where: { id: messageId } });
 
   // Only delete from S3 if no other messages reference this key
-  if (otherRefs === 0) {
+  if (otherRefs === 0 && otherSubRefs === 0) {
     try {
       await deleteRawEmail(message.s3Key);
     } catch {
