@@ -29,6 +29,9 @@ importers:
       '@prisma/client':
         specifier: ^7.3.0
         version: 7.3.0(prisma@7.3.0(@types/react@19.2.13)(react-dom@19.2.3(react@19.2.3))(react@19.2.3)(typescript@5.9.3))(typescript@5.9.3)
+      '@types/sns-validator':
+        specifier: ^0.3.3
+        version: 0.3.3
       '@x402/core':
         specifier: ^2.3.0
         version: 2.3.0
@@ -53,6 +56,9 @@ importers:
       react-dom:
         specifier: 19.2.3
         version: 19.2.3(react@19.2.3)
+      sns-validator:
+        specifier: ^0.3.5
+        version: 0.3.5
       viem:
         specifier: ^2.45.2
         version: 2.45.2(bufferutil@4.1.0)(typescript@5.9.3)(utf-8-validate@5.0.10)(zod@4.3.6)
@@ -1547,6 +1553,9 @@ packages:
 
   '@types/react@19.2.13':
     resolution: {integrity: sha512-KkiJeU6VbYbUOp5ITMIc7kBfqlYkKA5KhEHVrGMmUUMt7NeaZg65ojdPk+FtNrBAOXNVM5QM72jnADjM+XVRAQ==}
+
+  '@types/sns-validator@0.3.3':
+    resolution: {integrity: sha512-v/3bN5dak8aDXn7bgTGu+1oGc+PQCP0qnfzUM6gzo7FnxiW4wpppkaIptPhRhJaiDItbUDK+YA4yDQuVs5Cq1Q==}
 
   '@types/uuid@8.3.4':
     resolution: {integrity: sha512-c/I8ZRb51j+pYGAu5CrFMRxqZ2ke4y2grEBO5AUjgSkSk+qT2Ea+OdWElz/OiMf5MNpn2b17kuVBwZLQJXzihw==}
@@ -3314,6 +3323,9 @@ packages:
     resolution: {integrity: sha512-aSf+6+Latyttbj5nMu6GF3doMfv2UYj83hhwZgUF20ky6fTS83uVhkQABdIVnEuS8y1bBdk7p6ltb9SmlhTTlA==}
     peerDependencies:
       ethers: ^5.6.8 || ^6.0.8
+
+  sns-validator@0.3.5:
+    resolution: {integrity: sha512-lapYNmezLsltnt2fcQyhmYnC41mYZ7EjU7f2oR/hrhpbD/LemryclRpApwxO84gOyDIQ7MWe/h4HvkdunFzSKg==}
 
   source-map-js@1.2.1:
     resolution: {integrity: sha512-UXWMKhLOwVKb728IUtQPXxfYU+usdybtUrK/8uGE8CQMvrhOpwvzDBwj0QhSL7MQc7vIsISBG8VQ8+IDQxpfQA==}
@@ -5743,6 +5755,8 @@ snapshots:
     dependencies:
       csstype: 3.2.3
 
+  '@types/sns-validator@0.3.3': {}
+
   '@types/uuid@8.3.4': {}
 
   '@types/ws@7.4.7':
@@ -7772,6 +7786,8 @@ snapshots:
       ethers: 6.16.0(bufferutil@4.1.0)(utf-8-validate@5.0.10)
       uri-js: 4.4.1
       valid-url: 1.0.9
+
+  sns-validator@0.3.5: {}
 
   source-map-js@1.2.1: {}
 

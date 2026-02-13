@@ -6,13 +6,29 @@
  */
 import { NextRequest, NextResponse } from 'next/server';
 import { SESClient, SendRawEmailCommand } from '@aws-sdk/client-ses';
+import MessageValidator from 'sns-validator';
 import { prisma } from '@/lib/db/client';
 import { getRawEmail, deleteRawEmail } from '@/lib/email/s3';
 import { SUBDOMAIN_INBOX_LIMITS } from '@/lib/x402/pricing';
 
 const DOMAIN = process.env.EMAIL_DOMAIN ?? 'x402email.com';
 const EXPECTED_TOPIC_ARN = process.env.SNS_TOPIC_ARN ?? '';
+const MAX_FORWARDS_PER_SUBDOMAIN_PER_HOUR = 200;
+const snsValidator = new MessageValidator();
 const ses = new SESClient({ region: process.env.AWS_REGION ?? 'us-east-1' });
+
+/**
+ * Verify SNS message signature cryptographically.
+ * Ensures the message actually came from AWS, not a forged POST.
+ */
+function verifySnsSignature(message: Record<string, unknown>): Promise<void> {
+  return new Promise((resolve, reject) => {
+    snsValidator.validate(message, (err: Error | null) => {
+      if (err) reject(err);
+      else resolve();
+    });
+  });
+}
 
 /**
  * Rewrite email headers for forwarding. Operates on the raw RFC 2822 message:
@@ -140,32 +156,25 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ status: 'error', message: 'Invalid JSON' }, { status: 400 });
   }
 
+  // Verify SNS message signature — prevents forged notifications
+  try {
+    await verifySnsSignature(body);
+  } catch (error) {
+    console.error('[x402email] SNS signature verification failed:', error);
+    return NextResponse.json({ status: 'error', message: 'Invalid SNS signature' }, { status: 403 });
+  }
+
+  if (EXPECTED_TOPIC_ARN && body.TopicArn !== EXPECTED_TOPIC_ARN) {
+    console.error('[x402email] SNS topic mismatch:', body.TopicArn);
+    return NextResponse.json({ status: 'error' }, { status: 403 });
+  }
+
   // Handle SNS SubscriptionConfirmation
   if (body.Type === 'SubscriptionConfirmation') {
     const subscribeUrl = body.SubscribeURL as string | undefined;
     if (!subscribeUrl) {
       return NextResponse.json({ status: 'error', message: 'Missing SubscribeURL' }, { status: 400 });
     }
-
-    if (EXPECTED_TOPIC_ARN && body.TopicArn !== EXPECTED_TOPIC_ARN) {
-      console.error('[x402email] SNS topic mismatch:', body.TopicArn);
-      return NextResponse.json({ status: 'error' }, { status: 403 });
-    }
-
-    // Validate SubscribeURL is an actual AWS SNS endpoint to prevent SSRF
-    try {
-      const parsed = new URL(subscribeUrl);
-      if (
-        parsed.protocol !== 'https:' ||
-        !parsed.hostname.endsWith('.amazonaws.com')
-      ) {
-        console.error('[x402email] Suspicious SubscribeURL:', subscribeUrl);
-        return NextResponse.json({ status: 'error', message: 'Invalid SubscribeURL' }, { status: 400 });
-      }
-    } catch {
-      return NextResponse.json({ status: 'error', message: 'Invalid SubscribeURL' }, { status: 400 });
-    }
-
     try {
       await fetch(subscribeUrl);
       console.log('[x402email] SNS subscription confirmed');
@@ -178,11 +187,6 @@ export async function POST(request: NextRequest) {
   // Handle SNS Notification
   if (body.Type !== 'Notification') {
     return NextResponse.json({ status: 'ignored' });
-  }
-
-  if (EXPECTED_TOPIC_ARN && body.TopicArn !== EXPECTED_TOPIC_ARN) {
-    console.error('[x402email] SNS topic mismatch:', body.TopicArn);
-    return NextResponse.json({ status: 'error' }, { status: 403 });
   }
 
   let message: Record<string, unknown>;
@@ -243,6 +247,21 @@ export async function POST(request: NextRequest) {
     if (isSubdomain) {
       // --- Subdomain inbox routing ---
       const subdomainName = recipientDomain.replace(`.${DOMAIN}`, '');
+
+      // Rate-limit forwards per subdomain to prevent open relay abuse
+      const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000);
+      const recentForwards = await prisma.sendLog.count({
+        where: {
+          subdomain: { name: subdomainName },
+          fromEmail: `forward@${subdomainName}.${DOMAIN}`,
+          createdAt: { gte: oneHourAgo },
+        },
+      });
+      if (recentForwards >= MAX_FORWARDS_PER_SUBDOMAIN_PER_HOUR) {
+        console.log(`[x402email] Subdomain ${subdomainName} hit forward rate limit (${MAX_FORWARDS_PER_SUBDOMAIN_PER_HOUR}/hr), dropping ${recipient}`);
+        continue;
+      }
+
       const subdomainInbox = await prisma.subdomainInbox.findFirst({
         where: {
           localPart,
@@ -264,21 +283,29 @@ export async function POST(request: NextRequest) {
             await ses.send(new SendRawEmailCommand({ RawMessage: { Data: rewritten } }));
             forwarded++;
             console.log(`[x402email] Forwarded ${recipient} → ${subdomainInbox.forwardTo}`);
+            // Log forward for rate limiting
+            await prisma.sendLog.create({
+              data: {
+                subdomainId: subdomainInbox.subdomain.id,
+                fromEmail: `forward@${subdomainInbox.subdomain.name}.${DOMAIN}`,
+                toEmails: [subdomainInbox.forwardTo],
+                subject: subjectLine,
+              },
+            }).catch((err: unknown) => console.error('[x402email] Forward log error:', err));
           } catch (error) {
             console.error(`[x402email] Forward error for ${recipient}:`, error);
           }
         }
 
-        // Retain message if enabled and under cap
+        // Retain message if enabled and under cap (atomic via transaction)
         if (subdomainInbox.retainMessages) {
-          const messageCount = await prisma.subdomainMessage.count({
-            where: { inboxId: subdomainInbox.id },
-          });
-          if (messageCount >= SUBDOMAIN_INBOX_LIMITS.maxMessagesPerInbox) {
-            console.log(`[x402email] Inbox ${recipient} at message cap (${SUBDOMAIN_INBOX_LIMITS.maxMessagesPerInbox}), skipping retention`);
-          } else {
-            try {
-              await prisma.subdomainMessage.create({
+          try {
+            const retained = await prisma.$transaction(async (tx) => {
+              const count = await tx.subdomainMessage.count({
+                where: { inboxId: subdomainInbox.id },
+              });
+              if (count >= SUBDOMAIN_INBOX_LIMITS.maxMessagesPerInbox) return false;
+              await tx.subdomainMessage.create({
                 data: {
                   inboxId: subdomainInbox.id,
                   s3Key: objectKey,
@@ -286,11 +313,16 @@ export async function POST(request: NextRequest) {
                   subject: subjectLine,
                 },
               });
+              return true;
+            });
+            if (retained) {
               retainedAny = true;
               console.log(`[x402email] Retained subdomain message for ${recipient}`);
-            } catch (error) {
-              console.error(`[x402email] Retain error for ${recipient}:`, error);
+            } else {
+              console.log(`[x402email] Inbox ${recipient} at message cap (${SUBDOMAIN_INBOX_LIMITS.maxMessagesPerInbox}), skipping retention`);
             }
+          } catch (error) {
+            console.error(`[x402email] Retain error for ${recipient}:`, error);
           }
         }
       } else {
@@ -308,6 +340,15 @@ export async function POST(request: NextRequest) {
             await ses.send(new SendRawEmailCommand({ RawMessage: { Data: rewritten } }));
             forwarded++;
             console.log(`[x402email] Catch-all forwarded ${recipient} → ${subdomain.catchAllForwardTo}`);
+            // Log forward for rate limiting
+            await prisma.sendLog.create({
+              data: {
+                subdomainId: subdomain.id,
+                fromEmail: `forward@${subdomainName}.${DOMAIN}`,
+                toEmails: [subdomain.catchAllForwardTo],
+                subject: subjectLine,
+              },
+            }).catch((err: unknown) => console.error('[x402email] Forward log error:', err));
           } catch (error) {
             console.error(`[x402email] Catch-all forward error for ${recipient}:`, error);
           }
