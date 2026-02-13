@@ -29,13 +29,13 @@ export async function provisionSubdomain(subdomain: string): Promise<void> {
     {
       name: subdomain,
       type: 'TXT' as const,
-      value: 'v=spf1 include:amazonses.com ~all',
+      value: 'v=spf1 include:amazonses.com -all',
     },
     // DMARC record
     {
       name: `_dmarc.${subdomain}`,
       type: 'TXT' as const,
-      value: `v=DMARC1; p=quarantine; rua=mailto:dmarc@${DOMAIN}`,
+      value: `v=DMARC1; p=reject; rua=mailto:dmarc@${DOMAIN}`,
     },
     // MX record for inbound email receiving
     {
