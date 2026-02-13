@@ -37,6 +37,12 @@ export async function provisionSubdomain(subdomain: string): Promise<void> {
       type: 'TXT' as const,
       value: `v=DMARC1; p=quarantine; rua=mailto:dmarc@${DOMAIN}`,
     },
+    // MX record for inbound email receiving
+    {
+      name: subdomain,
+      type: 'MX' as const,
+      value: '10 inbound-smtp.us-east-1.amazonaws.com',
+    },
   ];
 
   await addDnsRecords(records);

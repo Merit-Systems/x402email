@@ -8,6 +8,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { SESClient, SendRawEmailCommand } from '@aws-sdk/client-ses';
 import { prisma } from '@/lib/db/client';
 import { getRawEmail, deleteRawEmail } from '@/lib/email/s3';
+import { SUBDOMAIN_INBOX_LIMITS } from '@/lib/x402/pricing';
 
 const DOMAIN = process.env.EMAIL_DOMAIN ?? 'x402email.com';
 const EXPECTED_TOPIC_ARN = process.env.SNS_TOPIC_ARN ?? '';
@@ -228,53 +229,130 @@ export async function POST(request: NextRequest) {
   // Extract subject from raw email headers for InboxMessage records
   const subjectLine = extractSubjectFromRaw(rawEmail);
 
-  // Process each recipient
+  // Process each recipient — route to root inbox or subdomain inbox
   let forwarded = 0;
   let retainedAny = false;
   for (const recipient of recipients) {
-    const username = recipient.split('@')[0]?.toLowerCase();
-    if (!username) continue;
+    const atIndex = recipient.indexOf('@');
+    if (atIndex === -1) continue;
+    const localPart = recipient.slice(0, atIndex).toLowerCase();
+    const recipientDomain = recipient.slice(atIndex + 1).toLowerCase();
 
-    const inbox = await prisma.inbox.findUnique({ where: { username } });
-    if (!inbox || !inbox.active || inbox.expiresAt < new Date()) {
-      continue;
-    }
+    const isSubdomain = recipientDomain !== DOMAIN && recipientDomain.endsWith(`.${DOMAIN}`);
 
-    // Forward if the inbox has a forwarding address
-    if (inbox.forwardTo) {
-      try {
-        const rewritten = rewriteHeadersForForward(rawEmail, {
-          forwardTo: inbox.forwardTo,
-          originalFrom,
-          originalTo: recipient,
+    if (isSubdomain) {
+      // --- Subdomain inbox routing ---
+      const subdomainName = recipientDomain.replace(`.${DOMAIN}`, '');
+      const subdomainInbox = await prisma.subdomainInbox.findFirst({
+        where: {
+          localPart,
+          active: true,
+          subdomain: { name: subdomainName, dnsVerified: true },
+        },
+        include: { subdomain: true },
+      });
+
+      if (subdomainInbox) {
+        // Forward if the subdomain inbox has a forwarding address
+        if (subdomainInbox.forwardTo) {
+          try {
+            const rewritten = rewriteHeadersForForward(rawEmail, {
+              forwardTo: subdomainInbox.forwardTo,
+              originalFrom,
+              originalTo: recipient,
+            });
+            await ses.send(new SendRawEmailCommand({ RawMessage: { Data: rewritten } }));
+            forwarded++;
+            console.log(`[x402email] Forwarded ${recipient} → ${subdomainInbox.forwardTo}`);
+          } catch (error) {
+            console.error(`[x402email] Forward error for ${recipient}:`, error);
+          }
+        }
+
+        // Retain message if enabled and under cap
+        if (subdomainInbox.retainMessages) {
+          const messageCount = await prisma.subdomainMessage.count({
+            where: { inboxId: subdomainInbox.id },
+          });
+          if (messageCount >= SUBDOMAIN_INBOX_LIMITS.maxMessagesPerInbox) {
+            console.log(`[x402email] Inbox ${recipient} at message cap (${SUBDOMAIN_INBOX_LIMITS.maxMessagesPerInbox}), skipping retention`);
+          } else {
+            try {
+              await prisma.subdomainMessage.create({
+                data: {
+                  inboxId: subdomainInbox.id,
+                  s3Key: objectKey,
+                  fromEmail: originalFrom,
+                  subject: subjectLine,
+                },
+              });
+              retainedAny = true;
+              console.log(`[x402email] Retained subdomain message for ${recipient}`);
+            } catch (error) {
+              console.error(`[x402email] Retain error for ${recipient}:`, error);
+            }
+          }
+        }
+      } else {
+        // No specific inbox — check catch-all on the subdomain
+        const subdomain = await prisma.subdomain.findUnique({
+          where: { name: subdomainName },
         });
-
-        await ses.send(new SendRawEmailCommand({
-          RawMessage: { Data: rewritten },
-        }));
-
-        forwarded++;
-        console.log(`[x402email] Forwarded ${recipient} → ${inbox.forwardTo}`);
-      } catch (error) {
-        console.error(`[x402email] Forward error for ${recipient}:`, error);
+        if (subdomain?.catchAllForwardTo) {
+          try {
+            const rewritten = rewriteHeadersForForward(rawEmail, {
+              forwardTo: subdomain.catchAllForwardTo,
+              originalFrom,
+              originalTo: recipient,
+            });
+            await ses.send(new SendRawEmailCommand({ RawMessage: { Data: rewritten } }));
+            forwarded++;
+            console.log(`[x402email] Catch-all forwarded ${recipient} → ${subdomain.catchAllForwardTo}`);
+          } catch (error) {
+            console.error(`[x402email] Catch-all forward error for ${recipient}:`, error);
+          }
+        }
+        // No catch-all and no inbox → silently drop
       }
-    }
+    } else {
+      // --- Root domain inbox routing (existing logic) ---
+      const inbox = await prisma.inbox.findUnique({ where: { username: localPart } });
+      if (!inbox || !inbox.active || inbox.expiresAt < new Date()) {
+        continue;
+      }
 
-    // Retain message in S3 if inbox has retention enabled
-    if (inbox.retainMessages) {
-      try {
-        await prisma.inboxMessage.create({
-          data: {
-            inboxId: inbox.id,
-            s3Key: objectKey,
-            fromEmail: originalFrom,
-            subject: subjectLine,
-          },
-        });
-        retainedAny = true;
-        console.log(`[x402email] Retained message for ${recipient}`);
-      } catch (error) {
-        console.error(`[x402email] Retain error for ${recipient}:`, error);
+      // Forward if the inbox has a forwarding address
+      if (inbox.forwardTo) {
+        try {
+          const rewritten = rewriteHeadersForForward(rawEmail, {
+            forwardTo: inbox.forwardTo,
+            originalFrom,
+            originalTo: recipient,
+          });
+          await ses.send(new SendRawEmailCommand({ RawMessage: { Data: rewritten } }));
+          forwarded++;
+          console.log(`[x402email] Forwarded ${recipient} → ${inbox.forwardTo}`);
+        } catch (error) {
+          console.error(`[x402email] Forward error for ${recipient}:`, error);
+        }
+      }
+
+      // Retain message in S3 if inbox has retention enabled
+      if (inbox.retainMessages) {
+        try {
+          await prisma.inboxMessage.create({
+            data: {
+              inboxId: inbox.id,
+              s3Key: objectKey,
+              fromEmail: originalFrom,
+              subject: subjectLine,
+            },
+          });
+          retainedAny = true;
+          console.log(`[x402email] Retained message for ${recipient}`);
+        } catch (error) {
+          console.error(`[x402email] Retain error for ${recipient}:`, error);
+        }
       }
     }
   }
