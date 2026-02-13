@@ -43,7 +43,7 @@ Subdomain owners can buy the matching inbox name with the same wallet (e.g., own
 
 ## Subdomain inboxes — receive email on subdomains
 
-Subdomain owners can create per-address inboxes (e.g., biden@craig.${DOMAIN}). Free to create (SIWX), cap 100/subdomain. Each inbox optionally forwards and/or retains messages for API access. Unmatched addresses go to catch-all if set, else dropped.
+Subdomain owners can create per-address inboxes (e.g., biden@craig.${DOMAIN}). $0.25 to create (x402), cap 100/subdomain. Each inbox optionally forwards and/or retains messages for API access. Unmatched addresses go to catch-all if set, else dropped.
 
 | Endpoint | Cost | Auth | Body |
 |----------|------|------|------|
