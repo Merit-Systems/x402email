@@ -8,10 +8,10 @@ import { NextRequest, NextResponse } from 'next/server';
 import { SESClient, SendRawEmailCommand } from '@aws-sdk/client-ses';
 import { prisma } from '@/lib/db/client';
 import { getRawEmail, deleteRawEmail } from '@/lib/email/s3';
+import { SUBDOMAIN_INBOX_LIMITS } from '@/lib/x402/pricing';
 
 const DOMAIN = process.env.EMAIL_DOMAIN ?? 'x402email.com';
 const EXPECTED_TOPIC_ARN = process.env.SNS_TOPIC_ARN ?? '';
-const MAX_MESSAGES_PER_SUBDOMAIN_INBOX = 500;
 const ses = new SESClient({ region: process.env.AWS_REGION ?? 'us-east-1' });
 
 /**
@@ -274,8 +274,8 @@ export async function POST(request: NextRequest) {
           const messageCount = await prisma.subdomainMessage.count({
             where: { inboxId: subdomainInbox.id },
           });
-          if (messageCount >= MAX_MESSAGES_PER_SUBDOMAIN_INBOX) {
-            console.log(`[x402email] Inbox ${recipient} at message cap (${MAX_MESSAGES_PER_SUBDOMAIN_INBOX}), skipping retention`);
+          if (messageCount >= SUBDOMAIN_INBOX_LIMITS.maxMessagesPerInbox) {
+            console.log(`[x402email] Inbox ${recipient} at message cap (${SUBDOMAIN_INBOX_LIMITS.maxMessagesPerInbox}), skipping retention`);
           } else {
             try {
               await prisma.subdomainMessage.create({

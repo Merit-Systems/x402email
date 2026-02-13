@@ -91,6 +91,16 @@ export const SubdomainInboxDeleteMessageRequestSchema = z.object({
   messageId: z.string().min(1),
 });
 
+export const UpdateSubdomainInboxRequestSchema = z.object({
+  subdomain: SubdomainNameSchema,
+  localPart: SubdomainInboxLocalPartSchema,
+  forwardTo: z.string().email().nullable().optional(),
+  retainMessages: z.boolean().optional(),
+}).refine(
+  (data) => data.forwardTo !== undefined || data.retainMessages !== undefined,
+  { message: 'At least one of forwardTo or retainMessages is required' },
+);
+
 export const UpdateSubdomainRequestSchema = z.object({
   subdomain: SubdomainNameSchema,
   catchAllForwardTo: z.string().email().nullable().optional(),

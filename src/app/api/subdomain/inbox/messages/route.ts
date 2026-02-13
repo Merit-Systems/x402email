@@ -7,7 +7,7 @@ import { withX402 } from '@x402/next';
 import { declareDiscoveryExtension } from '@x402/extensions/bazaar';
 import { z } from 'zod';
 import { getX402Server } from '@/lib/x402/server';
-import { PRICES } from '@/lib/x402/pricing';
+import { PRICES, SUBDOMAIN_INBOX_LIMITS } from '@/lib/x402/pricing';
 import { SubdomainInboxMessagesRequestSchema } from '@/schemas/subdomain';
 import { prisma } from '@/lib/db/client';
 import { extractPayerWallet } from '@/lib/x402/extract-wallet';
@@ -107,7 +107,7 @@ const coreHandler = async (request: NextRequest): Promise<NextResponse> => {
     );
   }
 
-  const MESSAGE_LIMIT = 500;
+  const { maxMessagesPerInbox: MESSAGE_LIMIT } = SUBDOMAIN_INBOX_LIMITS;
 
   const [messages, totalCount] = await Promise.all([
     prisma.subdomainMessage.findMany({

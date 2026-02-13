@@ -71,6 +71,14 @@ Subdomain owners can create per-address inboxes on their subdomain (e.g., `biden
 - Body: { "subdomain": "craig" }
 - Returns: { "success": true, "inboxes": [{ "localPart": "string", "address": "string", "forwardTo": "string?", "retainMessages": bool, "active": bool, "messageCount": number, "unreadCount": number }] }
 
+### POST /api/subdomain/inbox/update — Update inbox settings
+- Protection: SIWX wallet proof only (free, no payment)
+- Only the subdomain owner can update
+- Body: { "subdomain": "craig", "localPart": "biden", "forwardTo": "newemail@example.com", "retainMessages": true }
+- At least one of "forwardTo" or "retainMessages" is required
+- Set forwardTo to null to remove forwarding
+- Returns: { "success": true, "inbox": "biden@craig.x402email.com", "forwardTo": "string?", "retainMessages": bool }
+
 ### POST /api/subdomain/inbox/delete — Delete inbox from subdomain
 - Protection: SIWX wallet proof only (free, no payment)
 - Only the subdomain owner can delete

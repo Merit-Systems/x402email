@@ -8,13 +8,12 @@ import { withX402 } from '@x402/next';
 import { declareDiscoveryExtension } from '@x402/extensions/bazaar';
 import { z } from 'zod';
 import { getX402Server } from '@/lib/x402/server';
-import { PRICES } from '@/lib/x402/pricing';
+import { PRICES, SUBDOMAIN_INBOX_LIMITS } from '@/lib/x402/pricing';
 import { CreateSubdomainInboxRequestSchema } from '@/schemas/subdomain';
 import { prisma } from '@/lib/db/client';
 import { extractPayerWallet } from '@/lib/x402/extract-wallet';
 
 const DOMAIN = process.env.EMAIL_DOMAIN ?? 'x402email.com';
-const MAX_INBOXES_PER_SUBDOMAIN = 100;
 
 const inputJsonSchema = z.toJSONSchema(CreateSubdomainInboxRequestSchema, {
   target: 'draft-2020-12',
@@ -91,9 +90,9 @@ const coreHandler = async (request: NextRequest): Promise<NextResponse> => {
     );
   }
 
-  if (subdomain._count.inboxes >= MAX_INBOXES_PER_SUBDOMAIN) {
+  if (subdomain._count.inboxes >= SUBDOMAIN_INBOX_LIMITS.maxInboxesPerSubdomain) {
     return NextResponse.json(
-      { success: false, error: `Maximum ${MAX_INBOXES_PER_SUBDOMAIN} inboxes per subdomain` },
+      { success: false, error: `Maximum ${SUBDOMAIN_INBOX_LIMITS.maxInboxesPerSubdomain} inboxes per subdomain` },
       { status: 409 },
     );
   }
@@ -127,7 +126,7 @@ const coreHandler = async (request: NextRequest): Promise<NextResponse> => {
     id: inbox.id,
     ...(forwardTo ? { forwardTo } : {}),
     retainMessages,
-    messageLimit: 500,
+    messageLimit: SUBDOMAIN_INBOX_LIMITS.maxMessagesPerInbox,
   });
 };
 

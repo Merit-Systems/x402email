@@ -73,3 +73,8 @@ export const PRICES = {
 } as const;
 
 export const INBOX_DURATIONS = { topup: 30, quarter: 90, year: 365 } as const;
+
+export const SUBDOMAIN_INBOX_LIMITS = {
+  maxInboxesPerSubdomain: 100,
+  maxMessagesPerInbox: 500,
+} as const;
