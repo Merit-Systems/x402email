@@ -47,7 +47,7 @@ Subdomain owners can create per-address inboxes (e.g., biden@craig.${DOMAIN}). F
 
 | Endpoint | Cost | Auth | Body |
 |----------|------|------|------|
-| POST /api/subdomain/inbox/create | free | SIWX (owner) | {subdomain, localPart, forwardTo?} — omit forwardTo for programmatic-only |
+| POST /api/subdomain/inbox/create | $0.25 | x402 (owner) | {subdomain, localPart, forwardTo?} — omit forwardTo for programmatic-only. 500 msg cap per inbox. |
 | POST /api/subdomain/inbox/list | free | SIWX (owner) | {subdomain} — returns inboxes with message/unread counts |
 | POST /api/subdomain/inbox/delete | free | SIWX (owner) | {subdomain, localPart} — cascades messages + S3 |
 | POST /api/subdomain/inbox/messages | $0.001 | x402 (owner) | {subdomain, localPart, cursor?, limit?} — list inbound messages |
@@ -83,6 +83,7 @@ export async function GET() {
       `${BASE_URL}/api/inbox/send`,
       `${BASE_URL}/api/inbox/messages`,
       `${BASE_URL}/api/inbox/messages/read`,
+      `${BASE_URL}/api/subdomain/inbox/create`,
       `${BASE_URL}/api/subdomain/inbox/messages`,
       `${BASE_URL}/api/subdomain/inbox/messages/read`,
     ],

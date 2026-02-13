@@ -11,6 +11,7 @@ import { getRawEmail, deleteRawEmail } from '@/lib/email/s3';
 
 const DOMAIN = process.env.EMAIL_DOMAIN ?? 'x402email.com';
 const EXPECTED_TOPIC_ARN = process.env.SNS_TOPIC_ARN ?? '';
+const MAX_MESSAGES_PER_SUBDOMAIN_INBOX = 500;
 const ses = new SESClient({ region: process.env.AWS_REGION ?? 'us-east-1' });
 
 /**
@@ -268,21 +269,28 @@ export async function POST(request: NextRequest) {
           }
         }
 
-        // Retain message if enabled
+        // Retain message if enabled and under cap
         if (subdomainInbox.retainMessages) {
-          try {
-            await prisma.subdomainMessage.create({
-              data: {
-                inboxId: subdomainInbox.id,
-                s3Key: objectKey,
-                fromEmail: originalFrom,
-                subject: subjectLine,
-              },
-            });
-            retainedAny = true;
-            console.log(`[x402email] Retained subdomain message for ${recipient}`);
-          } catch (error) {
-            console.error(`[x402email] Retain error for ${recipient}:`, error);
+          const messageCount = await prisma.subdomainMessage.count({
+            where: { inboxId: subdomainInbox.id },
+          });
+          if (messageCount >= MAX_MESSAGES_PER_SUBDOMAIN_INBOX) {
+            console.log(`[x402email] Inbox ${recipient} at message cap (${MAX_MESSAGES_PER_SUBDOMAIN_INBOX}), skipping retention`);
+          } else {
+            try {
+              await prisma.subdomainMessage.create({
+                data: {
+                  inboxId: subdomainInbox.id,
+                  s3Key: objectKey,
+                  fromEmail: originalFrom,
+                  subject: subjectLine,
+                },
+              });
+              retainedAny = true;
+              console.log(`[x402email] Retained subdomain message for ${recipient}`);
+            } catch (error) {
+              console.error(`[x402email] Retain error for ${recipient}:`, error);
+            }
           }
         }
       } else {

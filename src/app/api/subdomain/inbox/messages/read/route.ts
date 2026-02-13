@@ -137,6 +137,18 @@ const coreHandler = async (request: NextRequest): Promise<NextResponse> => {
     });
   }
 
+  const MESSAGE_LIMIT = 500;
+  const totalCount = await prisma.subdomainMessage.count({
+    where: { inboxId: message.inboxId },
+  });
+
+  let warning: string | undefined;
+  if (totalCount >= MESSAGE_LIMIT) {
+    warning = `Inbox is at capacity (${totalCount}/${MESSAGE_LIMIT} messages). New inbound messages will not be retained. Delete old messages to free up space using POST /api/subdomain/inbox/messages/delete.`;
+  } else if (totalCount >= MESSAGE_LIMIT * 0.8) {
+    warning = `Inbox is near capacity (${totalCount}/${MESSAGE_LIMIT} messages). Delete old messages to free up space using POST /api/subdomain/inbox/messages/delete.`;
+  }
+
   return NextResponse.json({
     success: true,
     message: {
@@ -150,6 +162,9 @@ const coreHandler = async (request: NextRequest): Promise<NextResponse> => {
       attachments: email.attachments,
       receivedAt: message.receivedAt.toISOString(),
     },
+    messageCount: totalCount,
+    messageLimit: MESSAGE_LIMIT,
+    ...(warning ? { warning } : {}),
   });
 };
 

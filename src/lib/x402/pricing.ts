@@ -58,6 +58,12 @@ export const PRICES = {
     price: '0.001',
     payTo: PAYEE,
   },
+  subdomainInboxCreate: {
+    scheme: 'exact' as const,
+    network: NETWORK,
+    price: '0.25',
+    payTo: PAYEE,
+  },
   subdomainInboxMessages: {
     scheme: 'exact' as const,
     network: NETWORK,

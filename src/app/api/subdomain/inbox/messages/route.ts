@@ -107,16 +107,29 @@ const coreHandler = async (request: NextRequest): Promise<NextResponse> => {
     );
   }
 
-  const messages = await prisma.subdomainMessage.findMany({
-    where: { inboxId: inbox.id },
-    orderBy: { receivedAt: 'desc' },
-    take: limit + 1,
-    ...(cursor ? { cursor: { id: cursor }, skip: 1 } : {}),
-  });
+  const MESSAGE_LIMIT = 500;
+
+  const [messages, totalCount] = await Promise.all([
+    prisma.subdomainMessage.findMany({
+      where: { inboxId: inbox.id },
+      orderBy: { receivedAt: 'desc' },
+      take: limit + 1,
+      ...(cursor ? { cursor: { id: cursor }, skip: 1 } : {}),
+    }),
+    prisma.subdomainMessage.count({ where: { inboxId: inbox.id } }),
+  ]);
 
   const hasMore = messages.length > limit;
   const page = hasMore ? messages.slice(0, limit) : messages;
   const nextCursor = hasMore ? page[page.length - 1].id : undefined;
+
+  // Capacity warning when near or at limit
+  let warning: string | undefined;
+  if (totalCount >= MESSAGE_LIMIT) {
+    warning = `Inbox is at capacity (${totalCount}/${MESSAGE_LIMIT} messages). New inbound messages will not be retained. Delete old messages to free up space using POST /api/subdomain/inbox/messages/delete.`;
+  } else if (totalCount >= MESSAGE_LIMIT * 0.8) {
+    warning = `Inbox is near capacity (${totalCount}/${MESSAGE_LIMIT} messages). Delete old messages to free up space using POST /api/subdomain/inbox/messages/delete.`;
+  }
 
   return NextResponse.json({
     success: true,
@@ -128,6 +141,9 @@ const coreHandler = async (request: NextRequest): Promise<NextResponse> => {
       read: m.read,
     })),
     ...(nextCursor ? { nextCursor } : {}),
+    messageCount: totalCount,
+    messageLimit: MESSAGE_LIMIT,
+    ...(warning ? { warning } : {}),
   });
 };
 
