@@ -49,5 +49,54 @@ export const SubdomainSendRequestSchema = z.object({
   { message: 'Either html or text body is required' },
 );
 
+// --- Subdomain Inbox schemas ---
+
+// localPart: the part before @ — e.g., "biden" in biden@craig.x402email.com
+// More lenient than inbox usernames: 1-64 chars, standard email local part rules
+const LOCAL_PART_REGEX = /^[a-z0-9][a-z0-9._+-]{0,62}[a-z0-9]$/;
+
+export const SubdomainInboxLocalPartSchema = z
+  .string()
+  .min(1)
+  .max(64)
+  .regex(LOCAL_PART_REGEX, 'Local part must be 2-64 lowercase alphanumeric characters, dots, underscores, plus, or hyphens');
+
+export const CreateSubdomainInboxRequestSchema = z.object({
+  subdomain: SubdomainNameSchema,
+  localPart: SubdomainInboxLocalPartSchema,
+  forwardTo: z.string().email().optional(),
+});
+
+export const ListSubdomainInboxesRequestSchema = z.object({
+  subdomain: SubdomainNameSchema,
+});
+
+export const DeleteSubdomainInboxRequestSchema = z.object({
+  subdomain: SubdomainNameSchema,
+  localPart: SubdomainInboxLocalPartSchema,
+});
+
+export const SubdomainInboxMessagesRequestSchema = z.object({
+  subdomain: SubdomainNameSchema,
+  localPart: SubdomainInboxLocalPartSchema,
+  cursor: z.string().min(1).optional(),
+  limit: z.number().int().min(1).max(100).optional().default(20),
+});
+
+export const SubdomainInboxReadMessageRequestSchema = z.object({
+  messageId: z.string().min(1),
+});
+
+export const SubdomainInboxDeleteMessageRequestSchema = z.object({
+  messageId: z.string().min(1),
+});
+
+export const UpdateSubdomainRequestSchema = z.object({
+  subdomain: SubdomainNameSchema,
+  catchAllForwardTo: z.string().email().nullable().optional(),
+});
+
 export type BuySubdomainRequest = z.infer<typeof BuySubdomainRequestSchema>;
 export type SubdomainSendRequest = z.infer<typeof SubdomainSendRequestSchema>;
+export type CreateSubdomainInboxRequest = z.infer<typeof CreateSubdomainInboxRequestSchema>;
+export type SubdomainInboxMessagesRequest = z.infer<typeof SubdomainInboxMessagesRequestSchema>;

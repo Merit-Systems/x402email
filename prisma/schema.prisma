@@ -7,17 +7,47 @@ generator client {
 }
 
 model Subdomain {
-  id          String   @id @default(cuid())
-  name        String   @unique // 'alice' (without .x402email.com)
-  ownerWallet String
-  dnsVerified Boolean  @default(false)
-  sesVerified Boolean  @default(false)
-  paymentTx   String?
-  createdAt   DateTime @default(now())
-  signers     Signer[]
-  sendLogs    SendLog[]
+  id                String           @id @default(cuid())
+  name              String           @unique // 'alice' (without .x402email.com)
+  ownerWallet       String
+  dnsVerified       Boolean          @default(false)
+  sesVerified       Boolean          @default(false)
+  catchAllForwardTo String?
+  paymentTx         String?
+  createdAt         DateTime         @default(now())
+  signers           Signer[]
+  sendLogs          SendLog[]
+  inboxes           SubdomainInbox[]
 
   @@index([ownerWallet])
+}
+
+model SubdomainInbox {
+  id             String             @id @default(cuid())
+  subdomain      Subdomain          @relation(fields: [subdomainId], references: [id])
+  subdomainId    String
+  localPart      String // "biden" in biden@craig.x402email.com
+  forwardTo      String?
+  retainMessages Boolean            @default(true)
+  active         Boolean            @default(true)
+  createdAt      DateTime           @default(now())
+  messages       SubdomainMessage[]
+
+  @@unique([subdomainId, localPart])
+  @@index([subdomainId])
+}
+
+model SubdomainMessage {
+  id         String         @id @default(cuid())
+  inbox      SubdomainInbox @relation(fields: [inboxId], references: [id])
+  inboxId    String
+  s3Key      String
+  fromEmail  String
+  subject    String
+  receivedAt DateTime       @default(now())
+  read       Boolean        @default(false)
+
+  @@index([inboxId, receivedAt])
 }
 
 model Signer {

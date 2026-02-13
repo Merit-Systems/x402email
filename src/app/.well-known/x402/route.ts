@@ -37,8 +37,22 @@ Subdomain owners can buy the matching inbox name with the same wallet (e.g., own
 |----------|------|------|------|
 | POST /api/subdomain/buy | $5 | x402 | {subdomain} — DNS verified in ~5 min |
 | POST /api/subdomain/send | $0.005 | x402 (owner/signer) | {from, to[], subject, html?, text?, replyTo?} |
+| POST /api/subdomain/update | free | SIWX (owner) | {subdomain, catchAllForwardTo?} — set catch-all forwarding for unmatched addresses (null to remove) |
 | POST /api/subdomain/signers | free | SIWX (owner) | {action: "add"/"remove", subdomain, walletAddress} |
 | GET /api/subdomain/status?subdomain=x | free | SIWX (owner/signer) | — |
+
+## Subdomain inboxes — receive email on subdomains
+
+Subdomain owners can create per-address inboxes (e.g., biden@craig.${DOMAIN}). Free to create (SIWX), cap 100/subdomain. Each inbox optionally forwards and/or retains messages for API access. Unmatched addresses go to catch-all if set, else dropped.
+
+| Endpoint | Cost | Auth | Body |
+|----------|------|------|------|
+| POST /api/subdomain/inbox/create | free | SIWX (owner) | {subdomain, localPart, forwardTo?} — omit forwardTo for programmatic-only |
+| POST /api/subdomain/inbox/list | free | SIWX (owner) | {subdomain} — returns inboxes with message/unread counts |
+| POST /api/subdomain/inbox/delete | free | SIWX (owner) | {subdomain, localPart} — cascades messages + S3 |
+| POST /api/subdomain/inbox/messages | $0.001 | x402 (owner) | {subdomain, localPart, cursor?, limit?} — list inbound messages |
+| POST /api/subdomain/inbox/messages/read | $0.001 | x402 (owner) | {messageId} — full email with from/to/subject/text/html/attachments |
+| POST /api/subdomain/inbox/messages/delete | free | SIWX (owner) | {messageId} |
 
 ## Auth model
 
@@ -57,7 +71,7 @@ Use \`<img src="url">\` in html body. Host on agentupload.dev (x402-powered uplo
 export async function GET() {
   return NextResponse.json({
     version: 1,
-    description: `Email via x402 micropayments. Send ($0.02), buy inbox ($1/mo), buy subdomain ($5).`,
+    description: `Email via x402 micropayments. Send ($0.02), buy inbox ($1/mo), buy subdomain ($5). Subdomain inboxes for receiving email.`,
     resources: [
       `${BASE_URL}/api/send`,
       `${BASE_URL}/api/subdomain/buy`,
@@ -69,6 +83,8 @@ export async function GET() {
       `${BASE_URL}/api/inbox/send`,
       `${BASE_URL}/api/inbox/messages`,
       `${BASE_URL}/api/inbox/messages/read`,
+      `${BASE_URL}/api/subdomain/inbox/messages`,
+      `${BASE_URL}/api/subdomain/inbox/messages/read`,
     ],
     instructions,
   });
