@@ -9,6 +9,7 @@ import { prisma } from '@/lib/db/client';
 
 export const POST = router
   .route('subdomain/inbox/create')
+  .paid('0.25', { protocols: ['x402', 'mpp'] })
   .body(CreateSubdomainInboxRequestSchema)
   .description(`Create an inbox on your subdomain ($0.25 via x402). Max ${SUBDOMAIN_INBOX_LIMITS.maxInboxesPerSubdomain} inboxes, ${SUBDOMAIN_INBOX_LIMITS.maxMessagesPerInbox} messages each.`)
   .handler(async ({ body, wallet }) => {

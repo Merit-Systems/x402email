@@ -9,6 +9,7 @@ import { sendEmail } from '@/lib/email/ses';
 
 export const POST = router
   .route('subdomain/send')
+  .paid('0.005', { protocols: ['x402', 'mpp'] })
   .body(SubdomainSendRequestSchema)
   .description(`Send email from your custom subdomain on ${DOMAIN} ($0.005 via x402)`)
   .handler(async ({ body, wallet }) => {

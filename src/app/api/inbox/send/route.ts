@@ -9,6 +9,7 @@ import { sendEmail } from '@/lib/email/ses';
 
 export const POST = router
   .route('inbox/send')
+  .paid('0.005', { protocols: ['x402', 'mpp'] })
   .body(InboxSendRequestSchema)
   .description(`Send email from your forwarding inbox on ${DOMAIN} ($0.005 via x402)`)
   .handler(async ({ body, wallet }) => {

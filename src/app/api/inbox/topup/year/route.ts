@@ -10,6 +10,7 @@ const topup = createTopupHandler(INBOX_DURATIONS.year);
 
 export const POST = router
   .route('inbox/topup/year')
+  .paid('8', { protocols: ['x402', 'mpp'] })
   .body(TopupInboxRequestSchema)
   .description('Top up a forwarding inbox for 365 days ($8 via x402, save 34%)')
   .handler(async ({ body }) => topup(body.username));

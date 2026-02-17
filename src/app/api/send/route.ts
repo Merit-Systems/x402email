@@ -12,6 +12,7 @@ const FROM = `"x402email" <relay@${DOMAIN}>`;
 
 export const POST = router
   .route('send')
+  .paid('0.02', { protocols: ['x402', 'mpp'] })
   .body(SendEmailRequestSchema)
   .description(`Send an email from ${FROM} ($0.02 via x402)`)
   .handler(async ({ body }) => {
