@@ -18,7 +18,7 @@
     ]
   },
   "dependencies": {
-    "@agentcash/router": "0.4.7",
+    "@agentcash/router": "0.4.8",
     "@aws-sdk/client-route-53": "^3.986.0",
     "@aws-sdk/client-s3": "^3.987.0",
     "@aws-sdk/client-ses": "^3.986.0",

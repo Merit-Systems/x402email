@@ -8,7 +8,6 @@ import { prisma } from '@/lib/db/client';
 
 export const POST = router
   .route('inbox/messages')
-  .paid('0.001')
   .body(ListMessagesRequestSchema)
   .description('List messages in your inbox ($0.001 via x402)')
   .handler(async ({ body, wallet }) => {

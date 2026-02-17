@@ -10,7 +10,6 @@ import { parseRawEmail } from '@/lib/email/parse';
 
 export const POST = router
   .route('inbox/messages/read')
-  .paid('0.001')
   .body(ReadMessageRequestSchema)
   .description('Read a single inbox message ($0.001 via x402)')
   .handler(async ({ body, wallet }) => {

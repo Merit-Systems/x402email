@@ -10,7 +10,6 @@ const { maxMessagesPerInbox: MESSAGE_LIMIT } = SUBDOMAIN_INBOX_LIMITS;
 
 export const POST = router
   .route('subdomain/inbox/messages')
-  .paid('0.001')
   .body(SubdomainInboxMessagesRequestSchema)
   .description('List messages in a subdomain inbox ($0.001 via x402)')
   .handler(async ({ body, wallet }) => {
