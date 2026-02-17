@@ -6,132 +6,57 @@
  * forwardTo is optional — if omitted, retainMessages is enabled automatically
  * so the inbox works as a programmatic mailbox via the messages API.
  */
-import { NextRequest, NextResponse } from 'next/server';
-import { withX402 } from '@x402/next';
-import { declareDiscoveryExtension } from '@x402/extensions/bazaar';
-import { z } from 'zod';
-import { getX402Server } from '@/lib/x402/server';
-import { PRICES } from '@/lib/x402/pricing';
+import { router, DOMAIN } from '@/lib/routes';
 import { BuyInboxRequestSchema } from '@/schemas/inbox';
 import { prisma } from '@/lib/db/client';
-import { extractPayerWallet } from '@/lib/x402/extract-wallet';
 
-const DOMAIN = process.env.EMAIL_DOMAIN ?? 'x402email.com';
+export const POST = router
+  .route('inbox/buy')
+  .paid('1', { protocols: ['x402', 'mpp'] })
+  .body(BuyInboxRequestSchema)
+  .validate(async (body) => {
+    // Pre-payment check: reject if inbox already exists
+    const existingInbox = await prisma.inbox.findUnique({
+      where: { username: body.username },
+    });
+    if (existingInbox) {
+      throw Object.assign(new Error('Username already taken as an inbox'), { status: 409 });
+    }
+  })
+  .description(`Buy an inbox on ${DOMAIN} ($1 via x402, 30 days). forwardTo is optional — omit it to use as a programmatic mailbox via the messages API (retainMessages enabled automatically). Subdomain owners can buy the matching inbox name with the same wallet.`)
+  .handler(async ({ body, wallet }) => {
+    const ownerWallet = wallet!.toLowerCase();
 
-const inputJsonSchema = z.toJSONSchema(BuyInboxRequestSchema, {
-  target: 'draft-2020-12',
-});
+    // Subdomain owners CAN buy the matching inbox name — but only with the same wallet
+    const existingSubdomain = await prisma.subdomain.findUnique({
+      where: { name: body.username },
+    });
+    if (existingSubdomain && existingSubdomain.ownerWallet.toLowerCase() !== ownerWallet) {
+      throw Object.assign(
+        new Error('Username already taken as a subdomain by a different wallet'),
+        { status: 409 },
+      );
+    }
 
-const extensions = {
-  ...declareDiscoveryExtension({
-    bodyType: 'json',
-    inputSchema: inputJsonSchema,
-    output: {
-      schema: {
-        type: 'object',
-        properties: {
-          success: { type: 'boolean', const: true },
-          inbox: { type: 'string' },
-          forwardTo: { type: 'string' },
-          retainMessages: { type: 'boolean' },
-          expiresAt: { type: 'string' },
-          daysRemaining: { type: 'number' },
-        },
-        required: ['success', 'inbox', 'retainMessages', 'expiresAt', 'daysRemaining'],
+    const expiresAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
+    const retainMessages = !body.forwardTo;
+
+    await prisma.inbox.create({
+      data: {
+        username: body.username,
+        forwardTo: body.forwardTo ?? null,
+        ownerWallet,
+        expiresAt,
+        retainMessages,
       },
-      example: {
-        success: true,
-        inbox: 'alice@x402email.com',
-        retainMessages: true,
-        expiresAt: '2025-07-15T12:00:00.000Z',
-        daysRemaining: 30,
-      },
-    },
-  } as never),
-};
+    });
 
-const coreHandler = async (request: NextRequest): Promise<NextResponse> => {
-  let rawBody: unknown;
-  try {
-    rawBody = await request.json();
-  } catch {
-    return NextResponse.json(
-      { success: false, error: 'Invalid JSON body' },
-      { status: 400 },
-    );
-  }
-
-  const parsed = BuyInboxRequestSchema.safeParse(rawBody);
-  if (!parsed.success) {
-    const msg = parsed.error.issues
-      .map((i) => `${i.path.join('.')}: ${i.message}`)
-      .join('; ');
-    return NextResponse.json(
-      { success: false, error: 'Validation failed', message: msg },
-      { status: 400 },
-    );
-  }
-
-  const { username, forwardTo } = parsed.data;
-
-  const ownerWallet = extractPayerWallet(request);
-  if (!ownerWallet) {
-    return NextResponse.json(
-      { success: false, error: 'Could not determine payer wallet' },
-      { status: 400 },
-    );
-  }
-
-  // Cross-table uniqueness check: reject if inbox OR subdomain with this name exists
-  const [existingInbox, existingSubdomain] = await prisma.$transaction([
-    prisma.inbox.findUnique({ where: { username } }),
-    prisma.subdomain.findUnique({ where: { name: username } }),
-  ]);
-
-  if (existingInbox) {
-    return NextResponse.json(
-      { success: false, error: 'Username already taken as an inbox' },
-      { status: 409 },
-    );
-  }
-
-  if (existingSubdomain && existingSubdomain.ownerWallet.toLowerCase() !== ownerWallet) {
-    return NextResponse.json(
-      { success: false, error: 'Username already taken as a subdomain by a different wallet' },
-      { status: 409 },
-    );
-  }
-
-  const expiresAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
-
-  // If no forwardTo, auto-enable retainMessages so the inbox works
-  // as a programmatic mailbox via the messages API.
-  const retainMessages = !forwardTo;
-
-  await prisma.inbox.create({
-    data: {
-      username,
-      forwardTo: forwardTo ?? null,
-      ownerWallet,
-      expiresAt,
+    return {
+      success: true,
+      inbox: `${body.username}@${DOMAIN}`,
+      ...(body.forwardTo ? { forwardTo: body.forwardTo } : {}),
       retainMessages,
-    },
+      expiresAt: expiresAt.toISOString(),
+      daysRemaining: 30,
+    };
   });
-
-  return NextResponse.json({
-    success: true,
-    inbox: `${username}@${DOMAIN}`,
-    ...(forwardTo ? { forwardTo } : {}),
-    retainMessages,
-    expiresAt: expiresAt.toISOString(),
-    daysRemaining: 30,
-  });
-};
-
-const routeConfig = {
-  description: `Buy an inbox on ${DOMAIN} ($1 via x402, 30 days). forwardTo is optional — omit it to use as a programmatic mailbox via the messages API (retainMessages enabled automatically). Subdomain owners can buy the matching inbox name with the same wallet.`,
-  extensions,
-  accepts: [PRICES.inboxBuy],
-};
-
-export const POST = withX402(coreHandler, routeConfig, getX402Server());

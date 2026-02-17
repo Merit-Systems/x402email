@@ -9,7 +9,7 @@ import { SESClient, SendRawEmailCommand } from '@aws-sdk/client-ses';
 import MessageValidator from 'sns-validator';
 import { prisma } from '@/lib/db/client';
 import { getRawEmail, deleteRawEmail } from '@/lib/email/s3';
-import { SUBDOMAIN_INBOX_LIMITS } from '@/lib/x402/pricing';
+import { SUBDOMAIN_INBOX_LIMITS } from '@/lib/routes';
 
 const DOMAIN = process.env.EMAIL_DOMAIN ?? 'x402email.com';
 const EXPECTED_TOPIC_ARN = process.env.SNS_TOPIC_ARN ?? '';

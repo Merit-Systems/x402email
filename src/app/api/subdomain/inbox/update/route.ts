@@ -2,86 +2,58 @@
  * POST /api/subdomain/inbox/update — Update subdomain inbox settings.
  * Protection: SIWX only (free). Only the subdomain owner can update.
  */
-import { NextRequest, NextResponse } from 'next/server';
-import { verifySIWxFromRequest } from '@/lib/siwx/verify';
+import { router, DOMAIN } from '@/lib/routes';
 import { UpdateSubdomainInboxRequestSchema } from '@/schemas/subdomain';
 import { prisma } from '@/lib/db/client';
 
-const DOMAIN = process.env.EMAIL_DOMAIN ?? 'x402email.com';
+export const POST = router
+  .route('subdomain/inbox/update')
+  .siwx()
+  .body(UpdateSubdomainInboxRequestSchema)
+  .description('Update subdomain inbox settings (SIWX, free)')
+  .handler(async ({ body, wallet }) => {
+    const callerWallet = wallet!.toLowerCase();
+    const { subdomain: subdomainName, localPart, forwardTo, retainMessages } = body;
 
-export async function POST(request: NextRequest) {
-  let rawBody: unknown;
-  try {
-    rawBody = await request.json();
-  } catch {
-    return NextResponse.json(
-      { success: false, error: 'Invalid JSON body' },
-      { status: 400 },
-    );
-  }
+    const subdomain = await prisma.subdomain.findUnique({
+      where: { name: subdomainName },
+    });
 
-  const parsed = UpdateSubdomainInboxRequestSchema.safeParse(rawBody);
-  if (!parsed.success) {
-    const msg = parsed.error.issues
-      .map((i) => `${i.path.join('.')}: ${i.message}`)
-      .join('; ');
-    return NextResponse.json(
-      { success: false, error: 'Validation failed', message: msg },
-      { status: 400 },
-    );
-  }
+    if (!subdomain) {
+      throw Object.assign(new Error('Subdomain not found'), { status: 404 });
+    }
 
-  const { subdomain: subdomainName, localPart, forwardTo, retainMessages } = parsed.data;
+    if (subdomain.ownerWallet.toLowerCase() !== callerWallet) {
+      throw Object.assign(
+        new Error('Only the subdomain owner can update inboxes'),
+        { status: 403 },
+      );
+    }
 
-  // Verify SIWX
-  const resourceUri = `${process.env.NEXT_PUBLIC_BASE_URL}/api/subdomain/inbox/update`;
-  const result = await verifySIWxFromRequest(request, resourceUri);
-  if (result instanceof NextResponse) return result;
+    const inbox = await prisma.subdomainInbox.findUnique({
+      where: { subdomainId_localPart: { subdomainId: subdomain.id, localPart } },
+    });
 
-  const callerWallet = result.address.toLowerCase();
+    if (!inbox) {
+      throw Object.assign(
+        new Error('Inbox not found on this subdomain'),
+        { status: 404 },
+      );
+    }
 
-  const subdomain = await prisma.subdomain.findUnique({
-    where: { name: subdomainName },
+    const updateData: { forwardTo?: string | null; retainMessages?: boolean } = {};
+    if (forwardTo !== undefined) updateData.forwardTo = forwardTo;
+    if (retainMessages !== undefined) updateData.retainMessages = retainMessages;
+
+    const updated = await prisma.subdomainInbox.update({
+      where: { id: inbox.id },
+      data: updateData,
+    });
+
+    return {
+      success: true,
+      inbox: `${localPart}@${subdomainName}.${DOMAIN}`,
+      forwardTo: updated.forwardTo,
+      retainMessages: updated.retainMessages,
+    };
   });
-
-  if (!subdomain) {
-    return NextResponse.json(
-      { success: false, error: 'Subdomain not found' },
-      { status: 404 },
-    );
-  }
-
-  if (subdomain.ownerWallet.toLowerCase() !== callerWallet) {
-    return NextResponse.json(
-      { success: false, error: 'Only the subdomain owner can update inboxes' },
-      { status: 403 },
-    );
-  }
-
-  const inbox = await prisma.subdomainInbox.findUnique({
-    where: { subdomainId_localPart: { subdomainId: subdomain.id, localPart } },
-  });
-
-  if (!inbox) {
-    return NextResponse.json(
-      { success: false, error: 'Inbox not found on this subdomain' },
-      { status: 404 },
-    );
-  }
-
-  const updateData: { forwardTo?: string | null; retainMessages?: boolean } = {};
-  if (forwardTo !== undefined) updateData.forwardTo = forwardTo;
-  if (retainMessages !== undefined) updateData.retainMessages = retainMessages;
-
-  const updated = await prisma.subdomainInbox.update({
-    where: { id: inbox.id },
-    data: updateData,
-  });
-
-  return NextResponse.json({
-    success: true,
-    inbox: `${localPart}@${subdomainName}.${DOMAIN}`,
-    forwardTo: updated.forwardTo,
-    retainMessages: updated.retainMessages,
-  });
-}

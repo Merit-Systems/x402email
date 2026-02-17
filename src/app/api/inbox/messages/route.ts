@@ -2,127 +2,51 @@
  * POST /api/inbox/messages — List messages in an inbox.
  * Protection: x402 payment ($0.001). Wallet must own the inbox.
  */
-import { NextRequest, NextResponse } from 'next/server';
-import { withX402 } from '@x402/next';
-import { declareDiscoveryExtension } from '@x402/extensions/bazaar';
-import { z } from 'zod';
-import { getX402Server } from '@/lib/x402/server';
-import { PRICES } from '@/lib/x402/pricing';
+import { router } from '@/lib/routes';
 import { ListMessagesRequestSchema } from '@/schemas/inbox';
 import { prisma } from '@/lib/db/client';
-import { extractPayerWallet } from '@/lib/x402/extract-wallet';
 
-const inputJsonSchema = z.toJSONSchema(ListMessagesRequestSchema, {
-  target: 'draft-2020-12',
-});
+export const POST = router
+  .route('inbox/messages')
+  .paid('0.001', { protocols: ['x402', 'mpp'] })
+  .body(ListMessagesRequestSchema)
+  .description('List messages in your inbox ($0.001 via x402)')
+  .handler(async ({ body, wallet }) => {
+    const walletAddress = wallet!.toLowerCase();
+    const { username, cursor, limit } = body;
 
-const extensions = {
-  ...declareDiscoveryExtension({
-    bodyType: 'json',
-    inputSchema: inputJsonSchema,
-    output: {
-      schema: {
-        type: 'object',
-        properties: {
-          success: { type: 'boolean', const: true },
-          messages: {
-            type: 'array',
-            items: {
-              type: 'object',
-              properties: {
-                id: { type: 'string' },
-                fromEmail: { type: 'string' },
-                subject: { type: 'string' },
-                receivedAt: { type: 'string' },
-                read: { type: 'boolean' },
-              },
-            },
-          },
-          nextCursor: { type: 'string' },
-        },
-        required: ['success', 'messages'],
-      },
-    },
-  } as never),
-};
+    const inbox = await prisma.inbox.findUnique({ where: { username } });
+    if (!inbox) {
+      throw Object.assign(new Error('Inbox not found'), { status: 404 });
+    }
 
-const coreHandler = async (request: NextRequest): Promise<NextResponse> => {
-  let rawBody: unknown;
-  try {
-    rawBody = await request.json();
-  } catch {
-    return NextResponse.json(
-      { success: false, error: 'Invalid JSON body' },
-      { status: 400 },
-    );
-  }
+    if (inbox.ownerWallet.toLowerCase() !== walletAddress) {
+      throw Object.assign(
+        new Error('Wallet not authorized for this inbox'),
+        { status: 403 },
+      );
+    }
 
-  const parsed = ListMessagesRequestSchema.safeParse(rawBody);
-  if (!parsed.success) {
-    const msg = parsed.error.issues
-      .map((i) => `${i.path.join('.')}: ${i.message}`)
-      .join('; ');
-    return NextResponse.json(
-      { success: false, error: 'Validation failed', message: msg },
-      { status: 400 },
-    );
-  }
+    const messages = await prisma.inboxMessage.findMany({
+      where: { inboxId: inbox.id },
+      orderBy: { receivedAt: 'desc' },
+      take: limit + 1,
+      ...(cursor ? { cursor: { id: cursor }, skip: 1 } : {}),
+    });
 
-  const { username, cursor, limit } = parsed.data;
+    const hasMore = messages.length > limit;
+    const page = hasMore ? messages.slice(0, limit) : messages;
+    const nextCursor = hasMore ? page[page.length - 1].id : undefined;
 
-  const walletAddress = extractPayerWallet(request);
-  if (!walletAddress) {
-    return NextResponse.json(
-      { success: false, error: 'Could not determine payer wallet' },
-      { status: 401 },
-    );
-  }
-
-  const inbox = await prisma.inbox.findUnique({ where: { username } });
-  if (!inbox) {
-    return NextResponse.json(
-      { success: false, error: 'Inbox not found' },
-      { status: 404 },
-    );
-  }
-
-  if (inbox.ownerWallet.toLowerCase() !== walletAddress) {
-    return NextResponse.json(
-      { success: false, error: 'Wallet not authorized for this inbox' },
-      { status: 403 },
-    );
-  }
-
-  const messages = await prisma.inboxMessage.findMany({
-    where: {
-      inboxId: inbox.id,
-    },
-    orderBy: { receivedAt: 'desc' },
-    take: limit + 1,
-    ...(cursor ? { cursor: { id: cursor }, skip: 1 } : {}),
+    return {
+      success: true,
+      messages: page.map((m) => ({
+        id: m.id,
+        fromEmail: m.fromEmail,
+        subject: m.subject,
+        receivedAt: m.receivedAt.toISOString(),
+        read: m.read,
+      })),
+      ...(nextCursor ? { nextCursor } : {}),
+    };
   });
-
-  const hasMore = messages.length > limit;
-  const page = hasMore ? messages.slice(0, limit) : messages;
-  const nextCursor = hasMore ? page[page.length - 1].id : undefined;
-
-  return NextResponse.json({
-    success: true,
-    messages: page.map((m) => ({
-      id: m.id,
-      fromEmail: m.fromEmail,
-      subject: m.subject,
-      receivedAt: m.receivedAt.toISOString(),
-      read: m.read,
-    })),
-    ...(nextCursor ? { nextCursor } : {}),
-  });
-};
-
-const routeConfig = {
-  description: 'List messages in your inbox ($0.001 via x402)',
-  extensions,
-  accepts: [PRICES.inboxMessages],
-};
-
-export const POST = withX402(coreHandler, routeConfig, getX402Server());
