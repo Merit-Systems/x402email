@@ -12,6 +12,7 @@ import { prisma } from '@/lib/db/client';
 
 export const POST = router
   .route('inbox/buy')
+  .paid('1', { protocols: ['x402', 'mpp'] })
   .body(BuyInboxRequestSchema)
   .validate(async (body) => {
     // Pre-payment check: reject if inbox already exists

@@ -10,6 +10,7 @@ import { provisionSubdomain } from '@/lib/dns/provision';
 
 export const POST = router
   .route('subdomain/buy')
+  .paid('5', { protocols: ['x402', 'mpp'] })
   .body(BuySubdomainRequestSchema)
   .validate(async (body) => {
     // Pre-payment check: reject if subdomain OR inbox with this name exists
