@@ -64,6 +64,11 @@ export const DeleteMessageRequestSchema = z.object({
   messageId: z.string().min(1),
 });
 
+// Query schema for GET /api/inbox/status
+export const InboxStatusQuerySchema = z.object({
+  username: z.string().min(1),
+});
+
 export type BuyInboxRequest = z.infer<typeof BuyInboxRequestSchema>;
 export type TopupInboxRequest = z.infer<typeof TopupInboxRequestSchema>;
 export type InboxSendRequest = z.infer<typeof InboxSendRequestSchema>;

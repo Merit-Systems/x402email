@@ -8,6 +8,9 @@ importers:
 
   .:
     dependencies:
+      '@agentcash/router':
+        specifier: 0.4.7
+        version: 0.4.7(@coinbase/x402@2.1.0(bufferutil@4.1.0)(typescript@5.9.3)(utf-8-validate@5.0.10))(@x402/core@2.3.0)(@x402/evm@2.3.0(bufferutil@4.1.0)(typescript@5.9.3)(utf-8-validate@5.0.10))(@x402/extensions@2.3.0(bufferutil@4.1.0)(ethers@6.16.0(bufferutil@4.1.0)(utf-8-validate@5.0.10))(typescript@5.9.3)(utf-8-validate@5.0.10))(mppx@0.2.2(hono@4.11.4)(typescript@5.9.3)(viem@2.45.2(bufferutil@4.1.0)(typescript@5.9.3)(utf-8-validate@5.0.10)(zod@4.3.6)))(next@16.1.6(@babel/core@7.29.0)(react-dom@19.2.3(react@19.2.3))(react@19.2.3))(zod-openapi@5.4.6(zod@4.3.6))(zod@4.3.6)
       '@aws-sdk/client-route-53':
         specifier: ^3.986.0
         version: 3.986.0
@@ -41,12 +44,12 @@ importers:
       '@x402/extensions':
         specifier: ^2.3.0
         version: 2.3.0(bufferutil@4.1.0)(ethers@6.16.0(bufferutil@4.1.0)(utf-8-validate@5.0.10))(typescript@5.9.3)(utf-8-validate@5.0.10)
-      '@x402/next':
-        specifier: ^2.3.0
-        version: 2.3.0(bufferutil@4.1.0)(ethers@6.16.0(bufferutil@4.1.0)(utf-8-validate@5.0.10))(next@16.1.6(@babel/core@7.29.0)(react-dom@19.2.3(react@19.2.3))(react@19.2.3))(typescript@5.9.3)(utf-8-validate@5.0.10)
       mailparser:
         specifier: ^3.9.3
         version: 3.9.3
+      mppx:
+        specifier: ^0.2.2
+        version: 0.2.2(hono@4.11.4)(typescript@5.9.3)(viem@2.45.2(bufferutil@4.1.0)(typescript@5.9.3)(utf-8-validate@5.0.10)(zod@4.3.6))
       next:
         specifier: 16.1.6
         version: 16.1.6(@babel/core@7.29.0)(react-dom@19.2.3(react@19.2.3))(react@19.2.3)
@@ -107,6 +110,21 @@ packages:
 
   '@adraffy/ens-normalize@1.11.1':
     resolution: {integrity: sha512-nhCBV3quEgesuf7c7KYfperqSS14T8bYuvJ8PcLJp6znkZpFc0AuW4qBtr8eKVyPPe/8RSr7sglCWPU5eaxwKQ==}
+
+  '@agentcash/router@0.4.7':
+    resolution: {integrity: sha512-ZfkqzC60EB8PBYd9moHeffHNS6bqN4SWdweMN7fgZqETxuLumRC/Z1AgKRuDLW2qzLqsiq7/yoTMBiYHfMlWRA==}
+    peerDependencies:
+      '@coinbase/x402': ^2.1.0
+      '@x402/core': ^2.3.0
+      '@x402/evm': ^2.3.0
+      '@x402/extensions': ^2.3.0
+      mppx: ^0.2.0
+      next: '>=15.0.0'
+      zod: ^4.0.0
+      zod-openapi: ^5.0.0
+    peerDependenciesMeta:
+      mppx:
+        optional: true
 
   '@alloc/quick-lru@5.2.0':
     resolution: {integrity: sha512-UrcABB+4bUrFABwbluTIBErXwvbsU/V7TZWfmbgJfbkwiBuziS9gxdODUyuiecfdGQ85jglMW6juS3+z5TsKLw==}
@@ -781,6 +799,15 @@ packages:
       '@types/react': ^18.0.0 || ^19.0.0
       react: ^18.0.0 || ^19.0.0
       react-dom: ^18.0.0 || ^19.0.0
+
+  '@remix-run/fetch-proxy@0.7.1':
+    resolution: {integrity: sha512-rPLfOpAaCXtm1dLI45uIPKERNbXbrh0P9AJc1sliz8pWd/McaFYjdr5KzB4QrFSfPvEt/Wmy6F2521qB1kK0ug==}
+
+  '@remix-run/headers@0.19.0':
+    resolution: {integrity: sha512-+62NbkXuXm9r/NdG6KfH9OCKofCWm8VjkrVPICiHKtRl8Gf2Vi6eFTN4mGgBlZRhd5mmEVRV4hTIn/JUSHDAOw==}
+
+  '@remix-run/node-fetch-server@0.13.0':
+    resolution: {integrity: sha512-1EsNo0ZpgXu/90AWoRZf/oE3RVTUS80tiTUpt+hv5pjtAkw7icN4WskDwz/KdAw5ARbJLMhZBrO1NqThmy/McA==}
 
   '@rtsao/scc@1.1.0':
     resolution: {integrity: sha512-zt6OdqaDoOnJ1ZYsCYGt9YmWzDXl4vQdKTyJev62gFhRGKdx7mcT54V9KIjg+d2wi9EXsPvAPKe7i7WjfVWB8g==}
@@ -1729,15 +1756,6 @@ packages:
   '@x402/extensions@2.3.0':
     resolution: {integrity: sha512-hpx4CQ/fvfimwKQgw2LVu5Nj4s6+mzOAu3bhYE/5YtkMe49r2nxlTdhBoqjXs1nP7osL08r06wr1EVdzEdtYYQ==}
 
-  '@x402/next@2.3.0':
-    resolution: {integrity: sha512-PNV/OycHjdIOiD3J+3odBNMjqgaMXy/TG2+BFBoXJOa2A1XN2fDV7NhjhvQRbEqUV4X0TQkX/ZkxoKp9wOgevA==}
-    peerDependencies:
-      '@x402/paywall': 2.3.0
-      next: ^16.0.10
-    peerDependenciesMeta:
-      '@x402/paywall':
-        optional: true
-
   '@zone-eu/mailsplit@5.4.8':
     resolution: {integrity: sha512-eEyACj4JZ7sjzRvy26QhLgKEMWwQbsw1+QZnlLX+/gihcNH07lVPOcnwf5U6UAL7gkc//J3jVd76o/WS+taUiA==}
 
@@ -1920,6 +1938,10 @@ packages:
     peerDependenciesMeta:
       magicast:
         optional: true
+
+  cac@6.7.14:
+    resolution: {integrity: sha512-b6Ilus+c3RrdDk+JhLKUAQfzzgLEPy6wcXqS7f/xe1EETvsDP6GORG7SFuOs6cID5YkqchW/LXZbX5bc8j7ZcQ==}
+    engines: {node: '>=8'}
 
   call-bind-apply-helpers@1.0.2:
     resolution: {integrity: sha512-Sp1ablJ0ivDkSzjcaJdxEunN5/XvksFJ2sMBFfq6x0ryhQV/2b/KwFe21cMpmHtPOSij8K99/wSfoEuTObmuMQ==}
@@ -2909,6 +2931,25 @@ packages:
   minimist@1.2.8:
     resolution: {integrity: sha512-2yyAR8qBkN3YuheJanUpWC5U3bb5osDywNB8RzDVlDwDHbocAJveqqj1u8+SVD7jkWT4yvsHCpWqqWqAxb0zCA==}
 
+  mppx@0.2.2:
+    resolution: {integrity: sha512-wGdRhnrnRbl7Oyd2jYbqaVEtg7M23MZSO4/w4GhvMr3N+TFImE5gBpYZzy2VAbYugYCenjjetK5HR4bMjadsig==}
+    hasBin: true
+    peerDependencies:
+      '@modelcontextprotocol/sdk': '>=1.25.0'
+      elysia: '>=1'
+      express: '>=5'
+      hono: '>=4'
+      viem: '>=2.44.4'
+    peerDependenciesMeta:
+      '@modelcontextprotocol/sdk':
+        optional: true
+      elysia:
+        optional: true
+      express:
+        optional: true
+      hono:
+        optional: true
+
   ms@2.1.3:
     resolution: {integrity: sha512-6FlzubTLZG3J2a/NVCAleEhjzq5oxgHyaCU9yYXvcLsvoVaHJq/s5xXI6/XXP6tz7R9xAOtHnSO/tXtF3WRTlA==}
 
@@ -3027,6 +3068,14 @@ packages:
 
   ox@0.11.3:
     resolution: {integrity: sha512-1bWYGk/xZel3xro3l8WGg6eq4YEKlaqvyMtVhfMFpbJzK2F6rj4EDRtqDCWVEJMkzcmEi9uW2QxsqELokOlarw==}
+    peerDependencies:
+      typescript: '>=5.4.0'
+    peerDependenciesMeta:
+      typescript:
+        optional: true
+
+  ox@0.12.4:
+    resolution: {integrity: sha512-+P+C7QzuwPV8lu79dOwjBKfB2CbnbEXe/hfyyrff1drrO1nOOj3Hc87svHfcW1yneRr3WXaKr6nz11nq+/DF9Q==}
     peerDependencies:
       typescript: '>=5.4.0'
     peerDependenciesMeta:
@@ -3640,6 +3689,12 @@ packages:
   zeptomatch@2.1.0:
     resolution: {integrity: sha512-KiGErG2J0G82LSpniV0CtIzjlJ10E04j02VOudJsPyPwNZgGnRKQy7I1R7GMyg/QswnE4l7ohSGrQbQbjXPPDA==}
 
+  zod-openapi@5.4.6:
+    resolution: {integrity: sha512-P2jsOOBAq/6hCwUsMCjUATZ8szkMsV5VAwZENfyxp2Hc/XPJQpVwAgevWZc65xZauCwWB9LAn7zYeiCJFAEL+A==}
+    engines: {node: '>=20'}
+    peerDependencies:
+      zod: ^3.25.74 || ^4.0.0
+
   zod-validation-error@4.0.2:
     resolution: {integrity: sha512-Q6/nZLe6jxuU80qb/4uJ4t5v2VEZ44lzQjPDhYJNztRQ4wyWc6VF3D3Kb/fAuPetZQnhS3hnajCf9CsWesghLQ==}
     engines: {node: '>=18.0.0'}
@@ -3657,6 +3712,18 @@ snapshots:
   '@adraffy/ens-normalize@1.10.1': {}
 
   '@adraffy/ens-normalize@1.11.1': {}
+
+  '@agentcash/router@0.4.7(@coinbase/x402@2.1.0(bufferutil@4.1.0)(typescript@5.9.3)(utf-8-validate@5.0.10))(@x402/core@2.3.0)(@x402/evm@2.3.0(bufferutil@4.1.0)(typescript@5.9.3)(utf-8-validate@5.0.10))(@x402/extensions@2.3.0(bufferutil@4.1.0)(ethers@6.16.0(bufferutil@4.1.0)(utf-8-validate@5.0.10))(typescript@5.9.3)(utf-8-validate@5.0.10))(mppx@0.2.2(hono@4.11.4)(typescript@5.9.3)(viem@2.45.2(bufferutil@4.1.0)(typescript@5.9.3)(utf-8-validate@5.0.10)(zod@4.3.6)))(next@16.1.6(@babel/core@7.29.0)(react-dom@19.2.3(react@19.2.3))(react@19.2.3))(zod-openapi@5.4.6(zod@4.3.6))(zod@4.3.6)':
+    dependencies:
+      '@coinbase/x402': 2.1.0(bufferutil@4.1.0)(typescript@5.9.3)(utf-8-validate@5.0.10)
+      '@x402/core': 2.3.0
+      '@x402/evm': 2.3.0(bufferutil@4.1.0)(typescript@5.9.3)(utf-8-validate@5.0.10)
+      '@x402/extensions': 2.3.0(bufferutil@4.1.0)(ethers@6.16.0(bufferutil@4.1.0)(utf-8-validate@5.0.10))(typescript@5.9.3)(utf-8-validate@5.0.10)
+      next: 16.1.6(@babel/core@7.29.0)(react-dom@19.2.3(react@19.2.3))(react@19.2.3)
+      zod: 4.3.6
+      zod-openapi: 5.4.6(zod@4.3.6)
+    optionalDependencies:
+      mppx: 0.2.2(hono@4.11.4)(typescript@5.9.3)(viem@2.45.2(bufferutil@4.1.0)(typescript@5.9.3)(utf-8-validate@5.0.10)(zod@4.3.6))
 
   '@alloc/quick-lru@5.2.0': {}
 
@@ -4777,6 +4844,14 @@ snapshots:
       '@types/react': 19.2.13
       react: 19.2.3
       react-dom: 19.2.3(react@19.2.3)
+
+  '@remix-run/fetch-proxy@0.7.1':
+    dependencies:
+      '@remix-run/headers': 0.19.0
+
+  '@remix-run/headers@0.19.0': {}
+
+  '@remix-run/node-fetch-server@0.13.0': {}
 
   '@rtsao/scc@1.1.0': {}
 
@@ -5946,22 +6021,6 @@ snapshots:
       - typescript
       - utf-8-validate
 
-  '@x402/next@2.3.0(bufferutil@4.1.0)(ethers@6.16.0(bufferutil@4.1.0)(utf-8-validate@5.0.10))(next@16.1.6(@babel/core@7.29.0)(react-dom@19.2.3(react@19.2.3))(react@19.2.3))(typescript@5.9.3)(utf-8-validate@5.0.10)':
-    dependencies:
-      '@coinbase/cdp-sdk': 1.44.0(bufferutil@4.1.0)(typescript@5.9.3)(utf-8-validate@5.0.10)
-      '@x402/core': 2.3.0
-      '@x402/extensions': 2.3.0(bufferutil@4.1.0)(ethers@6.16.0(bufferutil@4.1.0)(utf-8-validate@5.0.10))(typescript@5.9.3)(utf-8-validate@5.0.10)
-      next: 16.1.6(@babel/core@7.29.0)(react-dom@19.2.3(react@19.2.3))(react@19.2.3)
-      zod: 3.25.76
-    transitivePeerDependencies:
-      - bufferutil
-      - debug
-      - encoding
-      - ethers
-      - fastestsmallesttextencoderdecoder
-      - typescript
-      - utf-8-validate
-
   '@zone-eu/mailsplit@5.4.8':
     dependencies:
       libbase64: 1.3.0
@@ -6184,6 +6243,8 @@ snapshots:
       perfect-debounce: 1.0.0
       pkg-types: 2.3.0
       rc9: 2.1.2
+
+  cac@6.7.14: {}
 
   call-bind-apply-helpers@1.0.2:
     dependencies:
@@ -7296,6 +7357,19 @@ snapshots:
 
   minimist@1.2.8: {}
 
+  mppx@0.2.2(hono@4.11.4)(typescript@5.9.3)(viem@2.45.2(bufferutil@4.1.0)(typescript@5.9.3)(utf-8-validate@5.0.10)(zod@4.3.6)):
+    dependencies:
+      '@remix-run/fetch-proxy': 0.7.1
+      '@remix-run/node-fetch-server': 0.13.0
+      cac: 6.7.14
+      ox: 0.12.4(typescript@5.9.3)(zod@4.3.6)
+      viem: 2.45.2(bufferutil@4.1.0)(typescript@5.9.3)(utf-8-validate@5.0.10)(zod@4.3.6)
+      zod: 4.3.6
+    optionalDependencies:
+      hono: 4.11.4
+    transitivePeerDependencies:
+      - typescript
+
   ms@2.1.3: {}
 
   mysql2@3.15.3:
@@ -7438,6 +7512,21 @@ snapshots:
       - zod
 
   ox@0.11.3(typescript@5.9.3)(zod@4.3.6):
+    dependencies:
+      '@adraffy/ens-normalize': 1.11.1
+      '@noble/ciphers': 1.3.0
+      '@noble/curves': 1.9.1
+      '@noble/hashes': 1.8.0
+      '@scure/bip32': 1.7.0
+      '@scure/bip39': 1.6.0
+      abitype: 1.2.3(typescript@5.9.3)(zod@4.3.6)
+      eventemitter3: 5.0.1
+    optionalDependencies:
+      typescript: 5.9.3
+    transitivePeerDependencies:
+      - zod
+
+  ox@0.12.4(typescript@5.9.3)(zod@4.3.6):
     dependencies:
       '@adraffy/ens-normalize': 1.11.1
       '@noble/ciphers': 1.3.0
@@ -8149,6 +8238,10 @@ snapshots:
     dependencies:
       grammex: 3.1.12
       graphmatch: 1.1.0
+
+  zod-openapi@5.4.6(zod@4.3.6):
+    dependencies:
+      zod: 4.3.6
 
   zod-validation-error@4.0.2(zod@4.3.6):
     dependencies:

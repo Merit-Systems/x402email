@@ -18,6 +18,7 @@
     ]
   },
   "dependencies": {
+    "@agentcash/router": "0.4.7",
     "@aws-sdk/client-route-53": "^3.986.0",
     "@aws-sdk/client-s3": "^3.987.0",
     "@aws-sdk/client-ses": "^3.986.0",
@@ -29,8 +30,8 @@
     "@x402/core": "^2.3.0",
     "@x402/evm": "^2.3.0",
     "@x402/extensions": "^2.3.0",
-    "@x402/next": "^2.3.0",
     "mailparser": "^3.9.3",
+    "mppx": "^0.2.2",
     "next": "16.1.6",
     "react": "19.2.3",
     "react-dom": "19.2.3",

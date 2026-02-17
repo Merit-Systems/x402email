@@ -2,81 +2,51 @@
  * POST /api/subdomain/update — Update subdomain settings.
  * Protection: SIWX only (free). Only the subdomain owner can update.
  */
-import { NextRequest, NextResponse } from 'next/server';
-import { verifySIWxFromRequest } from '@/lib/siwx/verify';
+import { router } from '@/lib/routes';
 import { UpdateSubdomainRequestSchema } from '@/schemas/subdomain';
 import { prisma } from '@/lib/db/client';
 
-export async function POST(request: NextRequest) {
-  let rawBody: unknown;
-  try {
-    rawBody = await request.json();
-  } catch {
-    return NextResponse.json(
-      { success: false, error: 'Invalid JSON body' },
-      { status: 400 },
-    );
-  }
+export const POST = router
+  .route('subdomain/update')
+  .siwx()
+  .body(UpdateSubdomainRequestSchema)
+  .description('Update subdomain settings (SIWX, free)')
+  .handler(async ({ body, wallet }) => {
+    const callerWallet = wallet!.toLowerCase();
+    const { subdomain: subdomainName, catchAllForwardTo } = body;
 
-  const parsed = UpdateSubdomainRequestSchema.safeParse(rawBody);
-  if (!parsed.success) {
-    const msg = parsed.error.issues
-      .map((i) => `${i.path.join('.')}: ${i.message}`)
-      .join('; ');
-    return NextResponse.json(
-      { success: false, error: 'Validation failed', message: msg },
-      { status: 400 },
-    );
-  }
+    const subdomain = await prisma.subdomain.findUnique({
+      where: { name: subdomainName },
+    });
 
-  const { subdomain: subdomainName, catchAllForwardTo } = parsed.data;
+    if (!subdomain) {
+      throw Object.assign(new Error('Subdomain not found'), { status: 404 });
+    }
 
-  // Verify SIWX
-  const resourceUri = `${process.env.NEXT_PUBLIC_BASE_URL}/api/subdomain/update`;
-  const result = await verifySIWxFromRequest(request, resourceUri);
-  if (result instanceof NextResponse) return result;
+    if (subdomain.ownerWallet.toLowerCase() !== callerWallet) {
+      throw Object.assign(
+        new Error('Only the subdomain owner can update settings'),
+        { status: 403 },
+      );
+    }
 
-  const callerWallet = result.address.toLowerCase();
+    const updateData: Record<string, unknown> = {};
+    if (catchAllForwardTo !== undefined) {
+      updateData.catchAllForwardTo = catchAllForwardTo;
+    }
 
-  const subdomain = await prisma.subdomain.findUnique({
-    where: { name: subdomainName },
+    if (Object.keys(updateData).length === 0) {
+      throw Object.assign(new Error('No fields to update'), { status: 400 });
+    }
+
+    const updated = await prisma.subdomain.update({
+      where: { id: subdomain.id },
+      data: updateData,
+    });
+
+    return {
+      success: true,
+      subdomain: updated.name,
+      catchAllForwardTo: updated.catchAllForwardTo,
+    };
   });
-
-  if (!subdomain) {
-    return NextResponse.json(
-      { success: false, error: 'Subdomain not found' },
-      { status: 404 },
-    );
-  }
-
-  if (subdomain.ownerWallet.toLowerCase() !== callerWallet) {
-    return NextResponse.json(
-      { success: false, error: 'Only the subdomain owner can update settings' },
-      { status: 403 },
-    );
-  }
-
-  // Build update payload — only include fields that were explicitly provided
-  const updateData: Record<string, unknown> = {};
-  if (catchAllForwardTo !== undefined) {
-    updateData.catchAllForwardTo = catchAllForwardTo;
-  }
-
-  if (Object.keys(updateData).length === 0) {
-    return NextResponse.json(
-      { success: false, error: 'No fields to update' },
-      { status: 400 },
-    );
-  }
-
-  const updated = await prisma.subdomain.update({
-    where: { id: subdomain.id },
-    data: updateData,
-  });
-
-  return NextResponse.json({
-    success: true,
-    subdomain: updated.name,
-    catchAllForwardTo: updated.catchAllForwardTo,
-  });
-}

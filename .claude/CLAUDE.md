@@ -20,9 +20,9 @@ Subdomain owners can also buy the matching inbox name (e.g., owner of `alice.x40
 - **Framework**: Next.js 15 (App Router)
 - **Styling**: Tailwind CSS v4
 - **Validation**: Zod 4
-- **Payments**: @x402/core, @x402/next, @x402/evm, @x402/extensions, @coinbase/x402
-- **Auth**: @x402/extensions/sign-in-with-x (SIWX) — shipped extension, CAIP-122 compliant, EVM + Solana
-- **Discovery**: @x402/extensions/bazaar (auto-generated schemas from Zod)
+- **Payments + Routing**: @agentcash/router (fluent builder for x402 + SIWX), @x402/core, @x402/evm, @x402/extensions, @coinbase/x402
+- **Auth**: SIWX via @agentcash/router `.siwx()` — CAIP-122 compliant, EVM + Solana
+- **Discovery**: Auto-generated via `router.wellKnown()` and `router.openapi()`
 - **Email**: AWS SES via AWS CLI ($0.0001/email) — SES is in sandbox (200/day), request prod access early
 - **DNS**: AWS Route53 (hosted zone Z03469302BH1RZCVCZS5Z, scoped IAM user x402email-service)
 - **Database**: Prisma ORM + Neon (serverless Postgres) via `neonctl` CLI
@@ -64,15 +64,14 @@ Subdomain owners can also buy the matching inbox name (e.g., owner of `alice.x40
 │  /.well-known/x402     discovery                         │
 │                                                          │
 │  ┌───────────────────────────────────────────────────┐   │
-│  │               x402 Resource Server                │   │
+│  │            @agentcash/router                      │   │
 │  │  ┌────────────┐ ┌────────────┐ ┌──────────────┐   │   │
-│  │  │  withX402   │ │   SIWX     │ │   Bazaar     │   │   │
-│  │  │  payment    │ │  extension │ │  discovery   │   │   │
+│  │  │  .paid()   │ │  .siwx()   │ │  .wellKnown  │   │   │
+│  │  │  x402 pay  │ │  wallet ID │ │  .openapi()  │   │   │
 │  │  └────────────┘ └────────────┘ └──────────────┘   │   │
 │  │                                                   │   │
-│  │  Hooks:                                           │   │
-│  │  • onAfterSettle → createSIWxSettleHook(storage)  │   │
-│  │  • onProtectedRequest → createSIWxRequestHook     │   │
+│  │  Lifecycle: body parse → validate → auth → handler│   │
+│  │  SIWX nonces: PrismaNonceStore (DB-backed)        │   │
 │  └───────────────────────────────────────────────────┘   │
 │                                                          │
 │  ┌──────────┐ ┌──────────┐ ┌──────────────────────────┐ │
@@ -83,59 +82,46 @@ Subdomain owners can also buy the matching inbox name (e.g., owner of `alice.x40
 └──────────────────────────────────────────────────────────┘
 ```
 
-## SIWX — How It Actually Works
+## SIWX — How It Works
 
-SIWX is a **shipped extension** in `@x402/extensions/sign-in-with-x`. It is NOT custom middleware. The key insight: SIWX proves "I already paid" so returning users skip re-payment.
+SIWX (Sign-In With X) proves wallet identity. The `@agentcash/router` handles SIWX natively:
 
-### Server-side setup (one-time):
-
+### Paid route (x402 payment + wallet from payment header):
 ```typescript
-import { x402ResourceServer, HTTPFacilitatorClient } from '@x402/core/server';
-import { registerExactEvmScheme } from '@x402/evm/exact/server';
-import { facilitator } from '@coinbase/x402';
-import {
-  siwxResourceServerExtension,
-  createSIWxSettleHook,
-  createSIWxRequestHook,
-} from '@x402/extensions/sign-in-with-x';
-
-const storage = new DatabaseSIWxStorage(); // implements SIWxStorage interface
-
-const server = new x402ResourceServer(new HTTPFacilitatorClient(facilitator));
-registerExactEvmScheme(server);
-
-// Register SIWX extension
-server.registerExtension(siwxResourceServerExtension);
-
-// Hook: after payment settles, record that this wallet paid for this resource
-server.onAfterSettle(createSIWxSettleHook({ storage }));
-
-// Hook: before requiring payment, check if wallet already paid via SIWX proof
-server.onProtectedRequest(createSIWxRequestHook({ storage }));
+export const POST = router
+  .route('send')
+  .paid('0.02')
+  .body(SendEmailRequestSchema)
+  .description('Send an email ($0.02 via x402)')
+  .handler(async ({ body, wallet }) => {
+    // wallet is verified from the payment signature
+  });
 ```
 
-### Route-level SIWX declaration:
-
+### SIWX route (free, wallet from SIWX proof):
 ```typescript
-import { declareSIWxExtension } from '@x402/extensions/sign-in-with-x';
-import { declareDiscoveryExtension } from '@x402/extensions/bazaar';
+export const POST = router
+  .route('subdomain/signers')
+  .siwx()
+  .body(ManageSignerRequestSchema)
+  .description('Manage signers (SIWX, free)')
+  .handler(async ({ body, wallet }) => {
+    // wallet is verified via SIWX signature
+  });
+```
 
-const extensions = {
-  ...declareDiscoveryExtension(discoveryConfig),
-  ...declareSIWxExtension({
-    statement: 'Sign in to send email from your subdomain',
-    expirationSeconds: 300,
-    // domain, resourceUri, network are auto-derived from request context
-  }),
-};
-
-const routeConfig = {
-  description: 'Send email from your subdomain',
-  extensions,
-  accepts: [{ scheme: 'exact', network: 'eip155:8453', price: '0.005', payTo: PAYEE }],
-};
-
-export const POST = withX402(handler, routeConfig, server);
+### Pre-payment validation (runs before 402 challenge):
+```typescript
+export const POST = router
+  .route('subdomain/buy')
+  .paid('5')
+  .body(BuySubdomainRequestSchema)
+  .validate(async (body) => {
+    // Reject unavailable names before charging
+    if (await nameExists(body.subdomain))
+      throw Object.assign(new Error('Already taken'), { status: 409 });
+  })
+  .handler(async ({ body, wallet }) => { ... });
 ```
 
 ### Wire protocol:
@@ -157,47 +143,17 @@ Contains: domain, address, uri, version, chainId, type (eip191/ed25519), nonce, 
 
 Message format follows EIP-4361 (SIWE) for EVM, CAIP-122 for Solana.
 
-### SIWxStorage interface:
-
-```typescript
-interface SIWxStorage {
-  hasPaid(resource: string, address: string): boolean | Promise<boolean>;
-  recordPayment(resource: string, address: string): void | Promise<void>;
-  hasUsedNonce?(nonce: string): boolean | Promise<boolean>;  // optional replay prevention
-  recordNonce?(nonce: string): void | Promise<void>;
-}
-```
-
-We implement this backed by Prisma + Neon Postgres — NOT the in-memory default.
-
 ### How we use SIWX for subdomain auth:
 
-The x402 SIWX model is "pay once, prove identity on return." For x402email:
+For x402email, SIWX is used for **authorization** (proving wallet identity) separate from **payment**:
 
-1. **Subdomain purchase** (`/api/subdomain/buy`): Normal x402 payment ($5). The `onAfterSettle` hook records `resource=/api/subdomain/* → wallet=0x...` in storage.
+1. **Paid routes** (`.paid()`): Wallet extracted from x402 payment signature. Used for send, buy, topup, and message read endpoints. Handler gets `wallet` from payment context.
 
-2. **Subdomain send** (`/api/subdomain/send`): x402 payment ($0.005) + SIWX extension. First-time callers pay. Return callers with SIWX proof skip... wait, no — they should ALWAYS pay per send. SIWX here proves wallet identity for authorization (proving they own the subdomain), NOT to skip payment.
+2. **SIWX routes** (`.siwx()`): Wallet extracted from SIWX proof (free, no payment). Used for status, update, cancel, signers, inbox management, and message delete endpoints. Handler gets `wallet` from SIWX context.
 
-**Key design decision**: We need SIWX for **authorization** (who are you?) separate from **payment** (pay per send). The standard SIWX flow uses "already paid" to grant access. For subdomain sends, we want:
-- SIWX proves wallet identity → we check against subdomain ownership
-- x402 payment happens on every send ($0.001)
+3. **Subdomain send** (`.paid('0.005')`): Wallet comes from x402 payment. Handler checks wallet is owner or authorized signer in DB.
 
-**Implementation approach**: Use SIWX for authorization check in the route handler AFTER payment settles. The `onAfterSettle` hook records subdomain purchases, and we verify the SIWX signer is authorized for that subdomain in the handler itself, NOT via `createSIWxRequestHook` (which would skip payment).
-
-```typescript
-// Subdomain send flow:
-// 1. Client sends request with SIGN-IN-WITH-X header + PAYMENT-SIGNATURE header
-// 2. withX402 processes payment (always settles — SIWX request hook NOT used for this route)
-// 3. Handler parses SIGN-IN-WITH-X header to get wallet address
-// 4. Handler checks wallet is owner or signer for the subdomain
-// 5. Handler sends email via SES
-```
-
-For signer management (free, no payment):
-- These are NOT x402 routes at all
-- Parse SIGN-IN-WITH-X header manually in the route handler
-- Use `parseSIWxHeader` + `verifySIWxSignature` from the extension
-- Verify the recovered address is the subdomain owner
+The router's `PrismaNonceStore` (in `lib/siwx/nonce-store.ts`) backs SIWX nonce replay prevention via the `SiwxNonce` Prisma table with probabilistic cleanup.
 
 ## API Endpoints
 
@@ -225,7 +181,7 @@ Response:
 ```
 
 ### POST /api/subdomain/buy — Purchase subdomain
-**Protection**: x402 payment ($5) + SIWX extension (records buyer wallet for future auth)
+**Protection**: x402 payment ($5), pre-payment validation via `.validate()`
 
 ```json
 {
@@ -233,17 +189,15 @@ Response:
 }
 ```
 
-The buyer's wallet address is extracted from the x402 payment (payer) or SIWX proof. No need to pass `ownerWallet` in the body.
+The buyer's wallet address is extracted from the x402 payment. No need to pass `ownerWallet` in the body.
 
 Flow:
-1. Validate subdomain name (alphanumeric + hyphens, 3-30 chars, not reserved)
-2. Check availability in DB
-3. x402 payment settles ($5)
-4. `onAfterSettle` records wallet → subdomain ownership in SIWxStorage
-5. Call AWS SES `VerifyDomainIdentity` + `VerifyDomainDkim` for `alice.x402email.com`
-6. Call Route53 API to add DNS records (TXT verification, 3 DKIM CNAMEs, SPF, DMARC)
-7. Store in DB with `dns_verified: false`
-8. Return subdomain info
+1. `.validate()` checks availability BEFORE 402 challenge (users don't pay for unavailable names)
+2. x402 payment settles ($5)
+3. Call AWS SES `VerifyDomainIdentity` + `VerifyDomainDkim` for `alice.x402email.com`
+4. Call Route53 API to add DNS records (TXT verification, 3 DKIM CNAMEs, SPF, DMARC)
+5. Store in DB with `dns_verified: false`
+6. Return subdomain info
 
 Response:
 ```json
@@ -256,7 +210,7 @@ Response:
 ```
 
 ### POST /api/subdomain/send — Subdomain send
-**Protection**: x402 payment ($0.005) + SIWX proof (authorization check in handler)
+**Protection**: x402 payment ($0.005), wallet from payment
 
 ```json
 {
@@ -271,7 +225,7 @@ Response:
 
 Flow:
 1. x402 payment settles ($0.005)
-2. Handler parses `SIGN-IN-WITH-X` header → recovers wallet address
+2. Handler gets `wallet` from payment context
 3. Handler extracts subdomain from `from` address
 4. Handler checks wallet is owner or authorized signer in DB
 5. Handler checks subdomain DNS is verified
@@ -279,9 +233,7 @@ Flow:
 7. Log the send
 
 ### POST /api/subdomain/signers — Manage signers
-**Protection**: SIWX only (NOT an x402 route — no payment)
-
-The route handler manually parses and verifies the SIWX header using utilities from `@x402/extensions/sign-in-with-x`.
+**Protection**: SIWX only (free, no payment) via `.siwx()`
 
 Add signer:
 ```json
@@ -304,9 +256,7 @@ Remove signer:
 Max 50 signers per subdomain. Only the owner wallet can manage signers.
 
 ### GET /api/subdomain/status — Check subdomain status
-**Protection**: SIWX only (NOT an x402 route — no payment)
-
-Same manual SIWX verification as signers endpoint.
+**Protection**: SIWX only (free, no payment) via `.siwx()`
 
 Query: `?subdomain=alice`
 
@@ -324,7 +274,10 @@ Response:
 ```
 
 ### GET /.well-known/x402 — Discovery
-Returns all x402-protected endpoints with pricing and Bazaar schemas.
+Auto-generated by `router.wellKnown()`. Returns all x402-protected endpoints with pricing.
+
+### GET /openapi.json — OpenAPI Spec
+Auto-generated by `router.openapi()`. Returns full OpenAPI 3.1 spec for all registered routes.
 
 ## Database Schema (Prisma + Neon Postgres)
 
@@ -339,34 +292,26 @@ See `prisma/schema.prisma` for the full schema. Key models:
 - **SendLog** — all outbound sends, used for rate limiting and auditing
 - **SiwxPayment** / **SiwxNonce** — SIWX authentication backing tables
 
-## SIWxStorage Implementation (Prisma-backed)
+## NonceStore Implementation (Prisma-backed)
 
 ```typescript
-// lib/siwx/storage.ts
-import type { SIWxStorage } from '@x402/extensions/sign-in-with-x';
+// lib/siwx/nonce-store.ts
+import type { NonceStore } from '@agentcash/router';
 import { prisma } from '@/lib/db/client';
 
-export class DatabaseSIWxStorage implements SIWxStorage {
-  // Backed by Prisma queries against SiwxPayment + SiwxNonce tables
-  async hasPaid(resource: string, address: string): Promise<boolean> {
-    const record = await prisma.siwxPayment.findUnique({
-      where: { resource_walletAddress: { resource, walletAddress: address } },
-    });
-    return !!record;
-  }
-  async recordPayment(resource: string, address: string): Promise<void> {
-    await prisma.siwxPayment.upsert({
-      where: { resource_walletAddress: { resource, walletAddress: address } },
-      create: { resource, walletAddress: address },
-      update: {},
-    });
-  }
-  async hasUsedNonce(nonce: string): Promise<boolean> {
-    const record = await prisma.siwxNonce.findUnique({ where: { nonce } });
-    return !!record;
-  }
-  async recordNonce(nonce: string): Promise<void> {
-    await prisma.siwxNonce.create({ data: { nonce } });
+export class PrismaNonceStore implements NonceStore {
+  async check(nonce: string): Promise<boolean> {
+    try {
+      await prisma.siwxNonce.create({ data: { nonce } });
+    } catch {
+      return false; // duplicate nonce = replay
+    }
+    // Probabilistic cleanup of old nonces (1% chance per call)
+    if (Math.random() < 0.01) {
+      const cutoff = new Date(Date.now() - 24 * 60 * 60 * 1000);
+      await prisma.siwxNonce.deleteMany({ where: { usedAt: { lt: cutoff } } }).catch(() => {});
+    }
+    return true;
   }
 }
 ```
@@ -446,14 +391,17 @@ x402email/
 │   │   └── .well-known/
 │   │       └── x402/
 │   │           └── route.ts     # x402 discovery
+│   │   ├── openapi.json/
+│   │   │   └── route.ts     # Auto-generated OpenAPI spec
 │   ├── lib/
+│   │   ├── routes.ts            # Router singleton (createRouter config, prices, constants)
+│   │   ├── routes/
+│   │   │   └── barrel.ts        # Barrel import for route self-registration
 │   │   ├── x402/
-│   │   │   ├── server.ts        # x402ResourceServer singleton + SIWX hooks
-│   │   │   ├── pricing.ts       # Route pricing config + limits
-│   │   │   └── route-wrapper.ts # createX402PostRoute helper
+│   │   │   ├── refund.ts        # Refund logic for inbox cancellation
+│   │   │   └── balance.ts       # USDC balance check for treasury sweep
 │   │   ├── siwx/
-│   │   │   ├── storage.ts       # DatabaseSIWxStorage (Prisma-backed SIWxStorage impl)
-│   │   │   └── verify.ts        # Manual SIWX header verification for non-x402 routes
+│   │   │   └── nonce-store.ts   # PrismaNonceStore (Prisma-backed NonceStore impl)
 │   │   ├── email/
 │   │   │   ├── ses.ts           # AWS SES client (SESv2 SDK)
 │   │   │   ├── s3.ts            # S3 email storage (get/delete raw email)
@@ -499,42 +447,30 @@ EMAIL_DOMAIN=x402email.com
 
 ## Implementation Order
 
-### Phase 1: Foundation
-1. Scaffold Next.js 15 app with Tailwind v4, TypeScript, Zod 4
-2. Create Neon project via `neonctl`, set up Prisma with schema, run `npx prisma db push`
-3. Set up x402ResourceServer with SIWX extension + Bazaar extension + hooks
-4. Implement DatabaseSIWxStorage backed by Prisma
-5. Set up .well-known/x402 discovery
+### Phase 1: Foundation (DONE)
+1. Next.js 15 + Tailwind v4 + TypeScript + Zod 4
+2. Neon Postgres via Prisma
+3. `@agentcash/router` with `createRouter()`, `PrismaNonceStore`, auto-discovery
+4. All 24 routes use fluent builder (`.paid()` / `.siwx()` + `.body()` + `.handler()`)
 
-### Phase 2: Shared Domain Send
-6. Implement AWS SES client (SESv2 SDK, send email function)
-7. Set up SES domain verification for x402email.com (one-time manual DNS setup)
-8. Implement POST /api/send — Zod schema validation, x402 payment wrapping, SES send
-9. Test end-to-end: x402 payment → SES send → email delivered
+### Phase 2: Shared Domain Send (DONE)
+5. AWS SES client + POST /api/send
 
-### Phase 3: Subdomain Purchase
-10. Implement Route53 DNS client (create records via scoped IAM)
-11. Implement SES domain verification client (VerifyDomainIdentity, VerifyDomainDkim)
-12. Implement subdomain provisioning flow (SES verify → Route53 DNS → DB)
-13. Implement POST /api/subdomain/buy — x402 payment + SIWX extension, provisions subdomain
-14. Implement DNS verification check (on-demand, called from status endpoint)
+### Phase 3: Subdomain Purchase (DONE)
+6. Route53 DNS + SES domain verification + POST /api/subdomain/buy with `.validate()`
 
-### Phase 4: Subdomain Send
-15. Implement SIWX header parsing + verification for route handlers (using @x402/extensions/sign-in-with-x utilities: parseSIWxHeader, verifySIWxSignature)
-16. Implement POST /api/subdomain/send — x402 payment + SIWX auth check in handler
-17. Test with x402scan MCP `authed_call` + `execute_call` tools
+### Phase 4: Subdomain Send (DONE)
+7. POST /api/subdomain/send — wallet from payment, authorization check in handler
 
-### Phase 5: Subdomain Management
-18. Implement manual SIWX verification middleware for non-x402 routes (lib/siwx/verify.ts)
-19. Implement POST /api/subdomain/signers — SIWX only, owner-only
-20. Implement GET /api/subdomain/status — SIWX only, owner or signer
+### Phase 5: Management + Inboxes (DONE)
+8. Subdomain signers, status, update — `.siwx()` routes
+9. Root inbox buy, send, topup, status, update, cancel
+10. Subdomain inbox create, list, delete, update, messages
 
 ### Phase 6: Polish
-21. Landing page with docs (Tailwind v4)
-22. Rate limiting per wallet / subdomain (based on sendLogs)
-23. Basic content scanning (reject executable attachments, enforce size limits)
-24. llms.txt for AI agent discoverability
-25. README + agents.md
+11. Rate limiting per wallet / subdomain (based on sendLogs)
+12. Bounce/complaint webhooks + auto-block
+13. Content scanning (reject executable attachments, enforce size limits)
 
 ## Anti-Abuse — SES Platform Risk
 
@@ -546,7 +482,7 @@ EMAIL_DOMAIN=x402email.com
 - **Schema validation** — 50 recipient cap, 256KB body limit, subdomain name rules
 - **Send logging** — all sends logged to DB with wallet address (for future analysis)
 - **SIWX nonce replay prevention** — nonces recorded in SiwxNonce table, prevents signature reuse
-- **Wallet identity from payment-signature only** — `extractPayerWallet` only trusts the cryptographically-signed payment header, not client-set convenience headers like x-wallet-address
+- **Wallet identity from payment-signature only** — `@agentcash/router` extracts wallet from the cryptographically-signed payment header, not client-set convenience headers
 - **SNS signature verification** — `sns-validator` package cryptographically verifies all inbound SNS messages before processing, preventing forged notifications
 - **Email header injection prevention** — forward handler sanitizes sender display name (strips CRLF/quotes)
 - **Forward rate limiting** — 200 forwards/hr per subdomain, prevents catch-all relay abuse

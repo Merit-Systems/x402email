@@ -106,6 +106,11 @@ export const UpdateSubdomainRequestSchema = z.object({
   catchAllForwardTo: z.string().email().nullable().optional(),
 });
 
+// Query schema for GET /api/subdomain/status
+export const SubdomainStatusQuerySchema = z.object({
+  subdomain: z.string().min(1),
+});
+
 export type BuySubdomainRequest = z.infer<typeof BuySubdomainRequestSchema>;
 export type SubdomainSendRequest = z.infer<typeof SubdomainSendRequestSchema>;
 export type CreateSubdomainInboxRequest = z.infer<typeof CreateSubdomainInboxRequestSchema>;
